@@ -1,0 +1,39 @@
+name: diginiwas
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+
+  # Networking
+  dio: ^5.4.3+1
+  pretty_dio_logger: ^1.4.0
+
+  # Secure storage (tokens)
+  flutter_secure_storage: ^9.2.2
+
+  # Push notifications
+  firebase_core: ^3.3.0
+  firebase_messaging: ^15.0.4
+  flutter_local_notifications: ^17.2.2
+
+  # Responsive sizing
+  flutter_screenutil: ^5.9.3
+
+  # Logging
+  logger: ^2.4.0
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
