@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/providers/core_providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../auth/presentation/login_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -18,9 +19,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
-  static const Color primaryGreen = Color(0xFF26B78B);
-  static const Color textDark = Color(0xFF132742);
-  static const Color subtitleGrey = Color(0xFF6B7280);
+  static const Color primaryGreen = AppColors.primary;
+  static const Color textDark = AppColors.textPrimary;
+  static const Color subtitleGrey = AppColors.textSecondary;
 
   @override
   void initState() {
@@ -72,7 +73,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6F9),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Stack(
           children: [

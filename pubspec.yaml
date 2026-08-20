@@ -25,6 +25,9 @@ dependencies:
 
   # Responsive sizing
   flutter_screenutil: ^5.9.3
+  flutter_svg: ^2.3.0
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
 
   # Logging
   logger: ^2.4.0
