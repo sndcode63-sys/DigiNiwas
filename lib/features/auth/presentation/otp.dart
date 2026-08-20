@@ -4,7 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/app_colors.dart';
 import 'choose_roll.dart';
-import 'login_screen.dart';
+import 'registration_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;

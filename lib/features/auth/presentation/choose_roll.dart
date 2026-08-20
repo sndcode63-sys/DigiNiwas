@@ -3,7 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/app_colors.dart';
 import 'buyer_home.dart';
-import 'login_screen.dart';
 
 class ChooseRoleScreen extends StatefulWidget {
   const ChooseRoleScreen({super.key});
@@ -37,105 +36,139 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 16.h),
-          child: Column(
-            children: [
-              SizedBox(height: 10.h),
-              Image.asset(
-                'assets/images/app_logo.png',
-                height: 75.h,
-                fit: BoxFit.contain,
-              ),
-              SizedBox(height: 20.h),
-
-              // Heading
-              Text(
-                'Choose Your Role',
-                style: TextStyle(
-                  fontSize: 22.sp,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 6.h),
-              Text(
-                'Tell us how you want to use\nDigiNiwas',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.sp,
-                  height: 1.4,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              SizedBox(height: 28.h),
-
-              // Role 1: Buyer
-              _buildRoleCard(
-                roleKey: 'buyer',
-                title: 'Buyer',
-                subtitle: 'Find your perfect property with verified listings',
-                iconOrAsset: Icons.apartment_rounded,
-                assetPath: 'assets/images/buyer_role.png',
-              ),
-              SizedBox(height: 14.h),
-
-              // Role 2: Seller
-              _buildRoleCard(
-                roleKey: 'seller',
-                title: 'Seller',
-                subtitle: 'Sell your property faster with trusted buyers',
-                iconOrAsset: Icons.real_estate_agent_rounded,
-                assetPath: 'assets/images/seller_role.png',
-              ),
-              SizedBox(height: 14.h),
-
-              // Role 3: Partner / Agent
-              _buildRoleCard(
-                roleKey: 'partner',
-                title: 'Partner / Agent',
-                subtitle: 'Grow your real estate business with DigiNiwas',
-                iconOrAsset: Icons.business_center_rounded,
-                assetPath: 'assets/images/partner_role.png',
-              ),
-
-              const Spacer(),
-
-              // Dynamic Continue Button
-              SizedBox(
-                width: double.infinity,
-                height: 50.h,
-                child: ElevatedButton(
-                  onPressed: _selectedRole == null ? null : _handleContinue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: const Color(0xFFC9D0D6),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26.r),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 16.h),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: 15.5.sp,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.white,
+                      Column(
+                        children: [
+                          SizedBox(height: 10.h),
+                          // Official App Logo
+                          Image.asset(
+                            'assets/images/app_logo.png',
+                            height: 75.h,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.home_work_rounded,
+                                  size: 48.sp,
+                                  color: AppColors.primary,
+                                ),
+                                SizedBox(height: 4.h),
+                                Text(
+                                  'DIGINIWAS',
+                                  style: TextStyle(
+                                    fontSize: 20.sp,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 2.0,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 20.h),
+
+                          // Heading
+                          Text(
+                            'Choose Your Role',
+                            style: TextStyle(
+                              fontSize: 22.sp,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 6.h),
+                          Text(
+                            'Tell us how you want to use\nDigiNiwas',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13.sp,
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          SizedBox(height: 28.h),
+
+                          // Role 1: Buyer
+                          _buildRoleCard(
+                            roleKey: 'buyer',
+                            title: 'Buyer',
+                            subtitle: 'Find your perfect property with verified listings',
+                            iconOrAsset: Icons.apartment_rounded,
+                            assetPath: 'assets/images/buyer_role.png',
+                          ),
+                          SizedBox(height: 14.h),
+
+                          // Role 2: Seller
+                          _buildRoleCard(
+                            roleKey: 'seller',
+                            title: 'Seller',
+                            subtitle: 'Sell your property faster with trusted buyers',
+                            iconOrAsset: Icons.real_estate_agent_rounded,
+                            assetPath: 'assets/images/seller_role.png',
+                          ),
+                          SizedBox(height: 14.h),
+
+                          // Role 3: Partner / Agent
+                          _buildRoleCard(
+                            roleKey: 'partner',
+                            title: 'Partner / Agent',
+                            subtitle: 'Grow your real estate business with DigiNiwas',
+                            iconOrAsset: Icons.business_center_rounded,
+                            assetPath: 'assets/images/partner_role.png',
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 24.h),
+
+                      // Dynamic Continue Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50.h,
+                        child: ElevatedButton(
+                          onPressed: _selectedRole == null ? null : _handleContinue,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            disabledBackgroundColor: const Color(0xFFC9D0D6),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(26.r),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Continue',
+                                style: TextStyle(
+                                  fontSize: 15.5.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.white,
+                                ),
+                              ),
+                              SizedBox(width: 6.w),
+                              Icon(Icons.arrow_forward_rounded, color: AppColors.white, size: 18.sp),
+                            ],
+                          ),
                         ),
                       ),
-                      SizedBox(width: 6.w),
-                      Icon(Icons.arrow_forward_rounded, color: AppColors.white, size: 18.sp),
                     ],
                   ),
                 ),
               ),
-              SizedBox(height: 14.h),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

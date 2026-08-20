@@ -1,13 +1,14 @@
 // =====================================================================
-// PROPERTY DETAILS SCREEN (FULL IMPLEMENTATION - WORKING URL LAUNCHER)
+// PROPERTY DETAILS SCREEN (WITH REAL SHARE & DYNAMIC FAVORITE TOGGLE)
 // =====================================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
+import 'package:share_plus/share_plus.dart'; // 👈 Real device sharing package
 import 'package:url_launcher/url_launcher.dart';
 
-class PropertyDetailsScreen extends StatelessWidget {
+class PropertyDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> property;
 
   const PropertyDetailsScreen({
@@ -15,14 +16,21 @@ class PropertyDetailsScreen extends StatelessWidget {
     required this.property,
   });
 
+  @override
+  State<PropertyDetailsScreen> createState() => _PropertyDetailsScreenState();
+}
+
+class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
+  bool _isFavorite = false;
+
   void _open360View(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PanoramaViewerScreen(
-          imageUrl: property['panorama_image'] ??
+          imageUrl: widget.property['panorama_image'] ??
               'https://images.unsplash.com/photo-1557971370-e7298ee473fb?w=1600&auto=format&fit=crop&q=80',
-          title: property['name'] ?? 'Celestial Heights',
+          title: widget.property['name'] ?? 'Celestial Heights',
         ),
       ),
     );
@@ -32,7 +40,7 @@ class PropertyDetailsScreen extends StatelessWidget {
   Future<void> _launchWhatsApp(String phone) async {
     final String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
     final Uri url = Uri.parse(
-        "https://wa.me/$cleanPhone?text=Hello, I am interested in ${property['name'] ?? 'this property'}.");
+        "https://wa.me/$cleanPhone?text=Hello, I am interested in ${widget.property['name'] ?? 'this property'}.");
 
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -49,6 +57,21 @@ class PropertyDetailsScreen extends StatelessWidget {
     } else {
       debugPrint("Could not launch Dialler");
     }
+  }
+
+  // Real Native Share Method
+  Future<void> _shareProperty() async {
+    final propertyName = widget.property['name'] ?? 'Property';
+    final propertyPrice = widget.property['price'] ?? '';
+    final propertyAddress = widget.property['address'] ?? '';
+
+    await Share.share(
+      'Check out this verified property on DigiNiwas!\n\n'
+          '🏠 $propertyName\n'
+          '📍 Location: $propertyAddress\n'
+          '💰 Price: $propertyPrice\n\n'
+          'Download DigiNiwas App for more amazing deals.',
+    );
   }
 
   void _showConnectPartnerBottomSheet(BuildContext context) {
@@ -131,7 +154,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8.r),
                       child: Image.network(
-                        property['image'] ??
+                        widget.property['image'] ??
                             'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop&q=80',
                         width: 44.w,
                         height: 44.w,
@@ -150,7 +173,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            property['name'] ?? 'Celestial Heights',
+                            widget.property['name'] ?? 'Celestial Heights',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
@@ -166,7 +189,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                               SizedBox(width: 2.w),
                               Expanded(
                                 child: Text(
-                                  property['address'] ?? 'Bopal, Ahmedabad',
+                                  widget.property['address'] ?? 'Bopal, Ahmedabad',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
@@ -181,7 +204,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      property['price'] ?? '₹85 L',
+                      widget.property['price'] ?? '₹85 L',
                       style: GoogleFonts.poppins(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w800,
@@ -422,13 +445,34 @@ class PropertyDetailsScreen extends StatelessWidget {
           ),
         ),
         actions: [
+          // Favorite / Dil Toggle Button with dynamic message
           IconButton(
-            icon: Icon(Icons.favorite_border_rounded, color: const Color(0xFF0F172A), size: 20.sp),
-            onPressed: () {},
+            icon: Icon(
+              _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: _isFavorite ? Colors.red : const Color(0xFF0F172A),
+              size: 20.sp,
+            ),
+            onPressed: () {
+              setState(() {
+                _isFavorite = !_isFavorite;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    _isFavorite ? 'Property added to saved list!' : 'Property removed from saved list!',
+                    style: GoogleFonts.poppins(fontSize: 12.sp),
+                  ),
+                  duration: const Duration(seconds: 1),
+                  backgroundColor: const Color(0xFF0F2544),
+                ),
+              );
+            },
           ),
+
+          // Real Native Share Button
           IconButton(
             icon: Icon(Icons.share_outlined, color: const Color(0xFF0F172A), size: 20.sp),
-            onPressed: () {},
+            onPressed: _shareProperty,
           ),
           SizedBox(width: 4.w),
         ],
@@ -442,7 +486,7 @@ class PropertyDetailsScreen extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Image.network(
-                  property['image'] ??
+                  widget.property['image'] ??
                       'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop&q=80',
                   width: double.infinity,
                   height: 250.h,
@@ -543,7 +587,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              property['name'] ?? 'Celestial Heights',
+                              widget.property['name'] ?? 'Celestial Heights',
                               style: GoogleFonts.poppins(
                                 fontSize: 19.sp,
                                 fontWeight: FontWeight.w700,
@@ -557,7 +601,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                                 SizedBox(width: 3.w),
                                 Expanded(
                                   child: Text(
-                                    property['address'] ?? 'Bopal, Ahmedabad',
+                                    widget.property['address'] ?? 'Bopal, Ahmedabad',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.poppins(
@@ -573,7 +617,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                       ),
                       SizedBox(width: 10.w),
                       Text(
-                        property['price'] ?? '₹85 L',
+                        widget.property['price'] ?? '₹85 L',
                         style: GoogleFonts.poppins(
                           fontSize: 22.sp,
                           fontWeight: FontWeight.w800,
@@ -584,7 +628,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 8.h),
                   Text(
-                    '${property['bhk'] ?? '2 BHK'}  •  ${property['sqft'] ?? '1,240 sq.ft'}  •  ${property['status'] ?? 'Ready to Move'}',
+                    '${widget.property['bhk'] ?? '2 BHK'}  •  ${widget.property['sqft'] ?? '1,240 sq.ft'}  •  ${widget.property['status'] ?? 'Ready to Move'}',
                     style: GoogleFonts.poppins(
                       fontSize: 11.5.sp,
                       color: const Color(0xFF64748B),
@@ -898,10 +942,28 @@ class PropertyDetailsScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {},
-              icon: Icon(Icons.bookmark_border_rounded, size: 16.sp, color: const Color(0xFF005B48)),
+              onPressed: () {
+                setState(() {
+                  _isFavorite = !_isFavorite;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _isFavorite ? 'Property saved successfully!' : 'Property removed from saved!',
+                      style: GoogleFonts.poppins(fontSize: 12.sp),
+                    ),
+                    duration: const Duration(seconds: 1),
+                    backgroundColor: const Color(0xFF0F2544),
+                  ),
+                );
+              },
+              icon: Icon(
+                _isFavorite ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                size: 16.sp,
+                color: const Color(0xFF005B48),
+              ),
               label: Text(
-                'Save Property',
+                _isFavorite ? 'Saved Property' : 'Save Property',
                 style: GoogleFonts.poppins(
                   fontSize: 11.5.sp,
                   fontWeight: FontWeight.w600,
