@@ -1,4 +1,7 @@
 import 'dart:ui';
+import 'package:diginiwas/features/auth/presentation/property_details_screen.dart';
+import 'package:diginiwas/features/auth/presentation/save_properties_screen.dart';
+import 'package:diginiwas/features/auth/presentation/show_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -7,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/shimmer.dart';
+import 'niwas_ai_section.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,6 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------------------------------------------------------------------
   // TAB NAVIGATION SWITCHER
   // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+  // TAB NAVIGATION SWITCHER
+  // ---------------------------------------------------------------------
   Widget _buildBody() {
     switch (_bottomNavIndex) {
       case 0:
@@ -52,31 +59,15 @@ class _HomeScreenState extends State<HomeScreen> {
           const Color(0xFF2563EB),
         );
       case 2:
-        return _buildTabPlaceholder(
-          'AI Assistant Screen',
-          const Color(0xFFF0FDF4),
-          Icons.smart_toy_rounded,
-          const Color(0xFF16A34A),
-        );
+        return const NiwasAiScreen();
       case 3:
-        return _buildTabPlaceholder(
-          'Saved Properties',
-          const Color(0xFFFFF1F2),
-          Icons.favorite_rounded,
-          const Color(0xFFE11D48),
-        );
+        return const SavedPropertiesScreen();
       case 4:
-        return _buildTabPlaceholder(
-          'User Profile',
-          const Color(0xFFFAF5FF),
-          Icons.person_rounded,
-          const Color(0xFF9333EA),
-        );
+        return const ProfileScreen();
       default:
         return _buildContent();
     }
   }
-
   Widget _buildTabPlaceholder(String title, Color bgColor, IconData icon, Color iconColor) {
     return Container(
       width: double.infinity,
@@ -496,47 +487,37 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------------------------------------------------------------------
   // RECOMMENDED FOR YOU
   // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// RECOMMENDED FOR YOU (UPDATED WITH ONTAP NAVIGATION)
+// ---------------------------------------------------------------------
   Widget _buildRecommendedCards() {
     final properties = [
+      {
+        'name': 'Celestial Heights',
+        'address': 'Bopal, Ahmedabad',
+        'bhk': '2 BHK',
+        'sqft': '1,240 sq.ft',
+        'status': 'Ready to Move',
+        'price': '₹85 L',
+        'image': 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop&q=80',
+      },
       {
         'name': 'Sunset Villa Elite',
         'address': 'Cantt Area, Ambala',
         'bhk': '4 BHK Villa',
+        'sqft': '2,400 sq.ft',
         'status': 'Under Construction',
         'price': '₹1.2 Cr',
-        'image': 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&auto=format&fit=crop&q=80',
+        'image': 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80',
       },
       {
         'name': 'Green Valley Residency',
         'address': 'Model Town, Ambala',
         'bhk': '3 BHK',
+        'sqft': '1,650 sq.ft',
         'status': 'Ready to Move',
         'price': '₹78.5 L',
-        'image': 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Palm Royal Heights',
-        'address': 'Sector 7, Ambala',
-        'bhk': '3 BHK Apartment',
-        'status': 'Ready to Move',
-        'price': '₹85.0 L',
-        'image': 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Grand Imperial City',
-        'address': 'GT Road, Ambala',
-        'bhk': '5 BHK Luxury Villa',
-        'status': 'Under Construction',
-        'price': '₹2.1 Cr',
-        'image': 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&auto=format&fit=crop&q=80',
-      },
-      {
-        'name': 'Skyline Meadows',
-        'address': 'Panchkula Road, Ambala',
-        'bhk': '2 BHK Flat',
-        'status': 'Ready to Move',
-        'price': '₹55.0 L',
-        'image': 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=600&auto=format&fit=crop&q=80',
+        'image': 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80',
       },
     ];
 
@@ -550,219 +531,172 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           final item = properties[index];
 
-          return Container(
-            width: 280.w,
-            margin: EdgeInsets.only(right: 16.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18.r),
-              border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PropertyDetailsScreen(property: item),
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
-                      child: Image.network(
-                        item['image']!,
-                        width: 278.w,
-                        height: 208.h,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+              );
+            },
+            child: Container(
+              width: 280.w,
+              margin: EdgeInsets.only(right: 16.w),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18.r),
+                border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                        child: Image.network(
+                          item['image']!,
                           width: 278.w,
                           height: 208.h,
-                          color: const Color(0xFFF1F6F8),
-                          child: Icon(
-                            Icons.home_work_rounded,
-                            color: const Color(0xFF007A5E),
-                            size: 34.sp,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 10.h,
-                      left: 10.w,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 4.h),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.95),
-                          borderRadius: BorderRadius.circular(20.r),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.check_circle_outline_rounded,
-                              size: 12.sp,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 278.w,
+                            height: 208.h,
+                            color: const Color(0xFFF1F6F8),
+                            child: Icon(
+                              Icons.home_work_rounded,
                               color: const Color(0xFF007A5E),
+                              size: 34.sp,
                             ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              'Verified',
-                              style: GoogleFonts.poppins(
-                                fontSize: 9.5.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF007A5E),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      top: 10.h,
-                      right: 10.w,
-                      child: Container(
-                        width: 32.w,
-                        height: 32.w,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.favorite_border_rounded,
-                            size: 16.sp,
-                            color: const Color(0xFF475569),
+                      Positioned(
+                        top: 10.h,
+                        left: 10.w,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.95),
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle_outline_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
+                              SizedBox(width: 4.w),
+                              Text(
+                                'Verified',
+                                style: GoogleFonts.poppins(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['name']!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14.5.sp,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
-                      SizedBox(height: 3.h),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            size: 12.sp,
-                            color: const Color(0xFF64748B),
+                      Positioned(
+                        top: 10.h,
+                        right: 10.w,
+                        child: Container(
+                          width: 32.w,
+                          height: 32.w,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
                           ),
-                          SizedBox(width: 3.w),
-                          Expanded(
-                            child: Text(
-                              item['address']!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(
-                                fontSize: 10.5.sp,
-                                color: const Color(0xFF64748B),
-                              ),
-                            ),
+                          child: Center(
+                            child: Icon(Icons.favorite_border_rounded, size: 16.sp, color: const Color(0xFF475569)),
                           ),
-                        ],
-                      ),
-                      SizedBox(height: 8.h),
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6.r),
-                            ),
-                            child: Text(
-                              item['bhk']!,
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF334155),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 8.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6.r),
-                            ),
-                            child: Text(
-                              item['status']!,
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF334155),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 6.h),
-                      Text(
-                        item['price']!,
-                        style: GoogleFonts.poppins(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF0F172A),
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      SizedBox(height: 8.h),
-                      Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.symmetric(vertical: 8.h),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE8F7F2),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(color: const Color(0xFFBCE7DA), width: 0.8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.auto_awesome,
-                              size: 12.sp,
-                              color: const Color(0xFF007A5E),
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              'View',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.5.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF007A5E),
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['name']!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(fontSize: 14.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                        ),
+                        SizedBox(height: 3.h),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on_outlined, size: 12.sp, color: const Color(0xFF64748B)),
+                            SizedBox(width: 3.w),
+                            Expanded(
+                              child: Text(
+                                item['address']!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8.h),
+                        Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6.r)),
+                              child: Text(item['bhk']!, style: GoogleFonts.poppins(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+                            ),
+                            SizedBox(width: 8.w),
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6.r)),
+                              child: Text(item['status']!, style: GoogleFonts.poppins(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 6.h),
+                        Text(
+                          item['price']!,
+                          style: GoogleFonts.poppins(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), letterSpacing: -0.3),
+                        ),
+                        SizedBox(height: 8.h),
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(vertical: 8.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F7F2),
+                            borderRadius: BorderRadius.circular(8.r),
+                            border: Border.all(color: const Color(0xFFBCE7DA), width: 0.8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.auto_awesome, size: 12.sp, color: const Color(0xFF007A5E)),
+                              SizedBox(width: 4.w),
+                              Text(
+                                'View',
+                                style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
     );
   }
-
   // ---------------------------------------------------------------------
   // BOOSTED PROPERTIES
   // ---------------------------------------------------------------------

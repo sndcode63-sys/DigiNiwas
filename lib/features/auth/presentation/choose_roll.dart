@@ -42,7 +42,11 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
           child: Column(
             children: [
               SizedBox(height: 10.h),
-              const DigiNiwasLogo(),
+              Image.asset(
+                'assets/images/app_logo.png',
+                height: 75.h,
+                fit: BoxFit.contain,
+              ),
               SizedBox(height: 20.h),
 
               // Heading
