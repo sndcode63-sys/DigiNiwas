@@ -1,7 +1,7 @@
 // =====================================================================
 // SAVED PROPERTIES & DYNAMIC MULTI-COMPARE INTEGRATION
 // =====================================================================
-import 'package:diginiwas/features/auth/presentation/property_details_screen.dart';
+import 'package:diginiwas/features/auth/presentation/buyer_section/property_details_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';

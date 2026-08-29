@@ -1,8 +1,7 @@
 class ApiConstants {
   ApiConstants._();
 
-  // 🔧 Apna base URL yahan change karo
-  static const String baseUrl = 'https://api.example.com';
+  static const String baseUrl = 'https://diginiwas-admin-backend.onrender.com/api    ';
 
   // Auth endpoints
   static const String login = '/auth/login';

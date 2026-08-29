@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../agent/home_screen.dart';
+import '../seller/home_seller.dart';
 import 'buyer_home.dart';
+// TODO: Import your Partner Dashboard screen here:
+// import '../partner/partner_dashboard_screen.dart';
 
 class ChooseRoleScreen extends StatefulWidget {
   const ChooseRoleScreen({super.key});
@@ -19,6 +23,18 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+      );
+    } else if (_selectedRole == 'seller') {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const SellerHomeScreen()),
+            (route) => false,
+      );
+    } else if (_selectedRole == 'partner') { // <-- Added Partner Dashboard Navigation Handler
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const PartnerDashboardScreen()), // Replace with your actual Partner Dashboard screen widget name
             (route) => false,
       );
     } else {
@@ -50,7 +66,6 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
                       Column(
                         children: [
                           SizedBox(height: 10.h),
-                          // Official App Logo
                           Image.asset(
                             'assets/images/app_logo.png',
                             height: 75.h,
@@ -77,8 +92,6 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
                             ),
                           ),
                           SizedBox(height: 20.h),
-
-                          // Heading
                           Text(
                             'Choose Your Role',
                             style: TextStyle(
@@ -99,8 +112,6 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
                             ),
                           ),
                           SizedBox(height: 28.h),
-
-                          // Role 1: Buyer
                           _buildRoleCard(
                             roleKey: 'buyer',
                             title: 'Buyer',
@@ -109,8 +120,6 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
                             assetPath: 'assets/images/buyer_role.png',
                           ),
                           SizedBox(height: 14.h),
-
-                          // Role 2: Seller
                           _buildRoleCard(
                             roleKey: 'seller',
                             title: 'Seller',
@@ -119,8 +128,6 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
                             assetPath: 'assets/images/seller_role.png',
                           ),
                           SizedBox(height: 14.h),
-
-                          // Role 3: Partner / Agent
                           _buildRoleCard(
                             roleKey: 'partner',
                             title: 'Partner / Agent',
@@ -131,8 +138,6 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
                         ],
                       ),
                       SizedBox(height: 24.h),
-
-                      // Dynamic Continue Button
                       SizedBox(
                         width: double.infinity,
                         height: 50.h,

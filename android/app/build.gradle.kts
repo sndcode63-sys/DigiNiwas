@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.example.diginiwas"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36 // Updated to 36 to fix plugin AAR metadata requirement
+
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -23,7 +24,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36 // Updated to 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -47,7 +48,7 @@ flutter {
     source = "../.."
 }
 
-// 2. Yeh block add karein
+// 2. Desugaring dependencies block
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

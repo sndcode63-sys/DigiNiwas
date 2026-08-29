@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/app_colors.dart';
-import 'choose_roll.dart';
+import 'buyer_section/choose_roll.dart';
 import 'registration_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {

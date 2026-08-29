@@ -1,15 +1,16 @@
 import 'dart:ui';
-import 'package:diginiwas/features/auth/presentation/property_details_screen.dart';
-import 'package:diginiwas/features/auth/presentation/save_properties_screen.dart';
-import 'package:diginiwas/features/auth/presentation/show_profile_screen.dart';
+import 'package:diginiwas/features/auth/presentation/buyer_section/property_details_screen.dart';
+import 'package:diginiwas/features/auth/presentation/buyer_section/save_properties_screen.dart';
+import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/shimmer.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/shimmer.dart';
+import 'exprole_name.dart';
 import 'niwas_ai_section.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -52,12 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 0:
         return _buildContent();
       case 1:
-        return _buildTabPlaceholder(
-          'Explore Screen',
-          const Color(0xFFEFF6FF),
-          Icons.explore_rounded,
-          const Color(0xFF2563EB),
-        );
+        return ExproleName();
       case 2:
         return const NiwasAiScreen();
       case 3:
