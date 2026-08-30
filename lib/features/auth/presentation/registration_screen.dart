@@ -4,10 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../application/auth_provider.dart';
 import 'otp.dart';
 
 class RegistrationScreen extends ConsumerStatefulWidget {
-  const RegistrationScreen({super.key});
+  /// Backend role this screen registers/logs the user in as — 'Buyer',
+  /// 'Seller' or 'Partner'. Comes from [ChooseRoleScreen], picked before
+  /// this screen is ever shown.
+  final String role;
+
+  const RegistrationScreen({super.key, required this.role});
 
   @override
   ConsumerState<RegistrationScreen> createState() => _RegistrationScreenState();
@@ -19,6 +26,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   final _emailController = TextEditingController();
 
   bool _isFormValid = false;
+  bool _isSubmitting = false;
 
   void _validateForm() {
     final phone = _phoneController.text.trim();
@@ -41,24 +49,49 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     super.dispose();
   }
 
-  void _handleContinue() {
-    if (!_isFormValid) return;
+  Future<void> _handleContinue() async {
+    if (!_isFormValid || _isSubmitting) return;
 
     FocusScope.of(context).unfocus();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OtpVerificationScreen(
-          phoneNumber: _phoneController.text.trim(),
+    setState(() => _isSubmitting = true);
+
+    final phone = _phoneController.text.trim();
+    final success = await ref.read(authProvider.notifier).register(
+          name: _nameController.text.trim(),
+          phone: phone,
+          email: _emailController.text.trim(),
+          role: widget.role,
+        );
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    if (success) {
+      AppToast.success(context, 'OTP sent to $phone');
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OtpVerificationScreen(
+            phoneNumber: phone,
+            mode: OtpFlowMode.register,
+            role: widget.role,
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      _showError(ref.read(authProvider).errorMessage ?? 'Registration failed. Please try again.');
+    }
+  }
+
+  void _showError(String message) {
+    AppToast.error(context, message);
   }
 
   // Method to open Login Bottom Sheet when "Log In" is clicked
   void _openLoginBottomSheet(BuildContext context) {
     final sheetPhoneController = TextEditingController();
     bool isSheetValid = false;
+    bool isSheetSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -151,6 +184,11 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                                 setModalState(() {
                                   isSheetValid = value.trim().length >= 10;
                                 });
+
+                                // Jab 10 digits poore ho jayein, keyboard hide kar do
+                                if (value.trim().length == 10) {
+                                  FocusScope.of(context).unfocus();
+                                }
                               },
                               style: TextStyle(
                                 fontSize: 14.sp,
@@ -170,8 +208,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                                 contentPadding: EdgeInsets.zero,
                               ),
                             ),
-                          ),
-                        ],
+                          ),                        ],
                       ),
                     ),
                     SizedBox(height: 20.h),
@@ -181,17 +218,33 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       width: double.infinity,
                       height: 50.h,
                       child: ElevatedButton(
-                        onPressed: isSheetValid
-                            ? () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => OtpVerificationScreen(
-                                phoneNumber: sheetPhoneController.text.trim(),
+                        onPressed: (isSheetValid && !isSheetSubmitting)
+                            ? () async {
+                          final phone = sheetPhoneController.text.trim();
+                          setModalState(() => isSheetSubmitting = true);
+                          final success = await ref.read(authProvider.notifier).requestLoginOtp(
+                                phone: phone,
+                                role: widget.role,
+                              );
+                          if (!context.mounted) return;
+                          setModalState(() => isSheetSubmitting = false);
+
+                          if (success) {
+                            Navigator.pop(context);
+                            AppToast.success(this.context, 'OTP sent to $phone');
+                            Navigator.push(
+                              this.context,
+                              MaterialPageRoute(
+                                builder: (_) => OtpVerificationScreen(
+                                  phoneNumber: phone,
+                                  mode: OtpFlowMode.login,
+                                  role: widget.role,
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          } else {
+                            AppToast.error(this.context, ref.read(authProvider).errorMessage ?? 'Could not send OTP. Please try again.');
+                          }
                         }
                             : null,
                         style: ElevatedButton.styleFrom(
@@ -201,7 +254,16 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                             borderRadius: BorderRadius.circular(26.r),
                           ),
                         ),
-                        child: Row(
+                        child: isSheetSubmitting
+                            ? SizedBox(
+                                width: 20.w,
+                                height: 20.w,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  valueColor: AlwaysStoppedAnimation(AppColors.white),
+                                ),
+                              )
+                            : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
@@ -318,7 +380,23 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    SizedBox(height: 28.h),
+                    SizedBox(height: 10.h),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
+                      decoration: BoxDecoration(
+                        color: AppColors.softBackground,
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Text(
+                        'Continuing as ${widget.role}',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 24.h),
 
                     // Phone Field
                     _buildInputPill(
@@ -448,7 +526,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       width: double.infinity,
                       height: 50.h,
                       child: ElevatedButton(
-                        onPressed: _isFormValid ? _handleContinue : null,
+                        onPressed: (_isFormValid && !_isSubmitting) ? _handleContinue : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _isFormValid ? AppColors.primary : AppColors.border,
                           elevation: 0,
@@ -456,7 +534,16 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                             borderRadius: BorderRadius.circular(26.r),
                           ),
                         ),
-                        child: Row(
+                        child: _isSubmitting
+                            ? SizedBox(
+                                width: 20.w,
+                                height: 20.w,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  valueColor: AlwaysStoppedAnimation(AppColors.white),
+                                ),
+                              )
+                            : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(

@@ -14,6 +14,7 @@ class ApiService {
         baseUrl: ApiConstants.baseUrl,
         connectTimeout: const Duration(milliseconds: ApiConstants.connectTimeout),
         receiveTimeout: const Duration(milliseconds: ApiConstants.receiveTimeout),
+        sendTimeout: const Duration(milliseconds: ApiConstants.sendTimeout),
         headers: {
           ApiConstants.contentTypeHeader: 'application/json',
         },
@@ -58,19 +59,39 @@ class ApiService {
   static final ApiService instance = ApiService._internal();
   late final Dio _dio;
 
+  /// Render's free tier sleeps the backend when idle — the very first
+  /// request after that can time out even though the server is fine and
+  /// just needs a moment to spin up. Retry once automatically so the user
+  /// isn't shown an error for something that resolves itself in a few
+  /// seconds.
+  Future<Response> _withColdStartRetry(Future<Response> Function() call) async {
+    try {
+      return await call();
+    } on DioException catch (e) {
+      final isTimeout = e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout;
+      if (!isTimeout) rethrow;
+
+      AppLogger.w('${e.requestOptions.method} ${e.requestOptions.path} timed out — '
+          'retrying once in case the server was waking up.');
+      return await call();
+    }
+  }
+
   Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) {
-    return _dio.get(path, queryParameters: queryParameters);
+    return _withColdStartRetry(() => _dio.get(path, queryParameters: queryParameters));
   }
 
   Future<Response> post(String path, {dynamic data}) {
-    return _dio.post(path, data: data);
+    return _withColdStartRetry(() => _dio.post(path, data: data));
   }
 
   Future<Response> put(String path, {dynamic data}) {
-    return _dio.put(path, data: data);
+    return _withColdStartRetry(() => _dio.put(path, data: data));
   }
 
   Future<Response> delete(String path, {dynamic data}) {
-    return _dio.delete(path, data: data);
+    return _withColdStartRetry(() => _dio.delete(path, data: data));
   }
 }

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../auth/presentation/registration_screen.dart';
+import '../../auth/application/auth_provider.dart';
+import '../../auth/presentation/agent/home_screen.dart';
+import '../../auth/presentation/buyer_section/buyer_home.dart' as buyer;
+import '../../auth/presentation/buyer_section/choose_roll.dart';
+import '../../auth/presentation/seller/home_seller.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -46,12 +49,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Future<void> _checkAuthAndNavigate() async {
     await Future.delayed(const Duration(milliseconds: 2500));
 
-    final hasToken = await ref.read(secureStorageProvider).hasToken();
+    final session = await ref.read(authRepositoryProvider).getStoredSession();
 
     if (!mounted) return;
 
+    Widget destination;
+    if (session != null) {
+      // Already logged in from a previous app run — skip auth entirely.
+      final role = (session['role'] as String?)?.toLowerCase();
+      switch (role) {
+        case 'seller':
+          destination = const SellerHomeScreen();
+          break;
+        case 'partner':
+        case 'agent':
+          destination = const PartnerDashboardScreen();
+          break;
+        case 'buyer':
+          destination = const buyer.HomeScreen();
+          break;
+        default:
+          // Unknown/missing role in the saved session — safest is to ask again.
+          destination = const ChooseRoleScreen();
+      }
+    } else {
+      destination = const ChooseRoleScreen();
+    }
+
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const RegistrationScreen()),
+      MaterialPageRoute(builder: (_) => destination),
     );
   }
 

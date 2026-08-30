@@ -11,6 +11,7 @@ class SecureStorageService {
 
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
+  static const _userDataKey = 'user_data';
 
   Future<void> saveAccessToken(String token) =>
       _storage.write(key: _accessTokenKey, value: token);
@@ -22,9 +23,18 @@ class SecureStorageService {
 
   Future<String?> getRefreshToken() => _storage.read(key: _refreshTokenKey);
 
+  /// JSON-encoded user profile (id/name/phone/role/...) returned at login,
+  /// so the app can restore the session on the next launch without asking
+  /// the user to log in again.
+  Future<void> saveUserData(String userJson) =>
+      _storage.write(key: _userDataKey, value: userJson);
+
+  Future<String?> getUserData() => _storage.read(key: _userDataKey);
+
   Future<void> clearTokens() async {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
+    await _storage.delete(key: _userDataKey);
   }
 
   Future<bool> hasToken() async {

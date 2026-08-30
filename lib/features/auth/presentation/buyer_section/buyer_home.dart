@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:diginiwas/features/auth/presentation/buyer_section/property_details_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/save_properties_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_screen.dart';

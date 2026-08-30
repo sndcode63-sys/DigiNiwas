@@ -2,11 +2,77 @@
 // USER PROFILE SCREEN (MATCHING SCREENSHOT UI)
 // =====================================================================
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class ProfileScreen extends StatelessWidget {
+import '../../../../core/widgets/app_toast.dart';
+import '../../application/auth_provider.dart';
+import 'choose_roll.dart';
+
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _isLoggingOut = false;
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
+        title: Text(
+          'Log out?',
+          style: GoogleFonts.poppins(fontSize: 16.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+        ),
+        content: Text(
+          'You will need to verify your phone number again to log back in.',
+          style: GoogleFonts.poppins(fontSize: 12.5.sp, color: const Color(0xFF64748B), height: 1.4),
+        ),
+        actionsPadding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE11D48),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+            ),
+            child: Text(
+              'Log Out',
+              style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoggingOut = true);
+    await ref.read(authProvider.notifier).logout();
+
+    if (!mounted) return;
+    setState(() => _isLoggingOut = false);
+
+    AppToast.success(context, 'Logged out successfully');
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const ChooseRoleScreen()),
+          (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +129,22 @@ class ProfileScreen extends StatelessWidget {
               iconColor: const Color(0xFF7C3AED),
               title: 'Recently Viewed',
               onTap: () {},
+            ),
+            SizedBox(height: 10.h),
+            _buildQuickNavTile(
+              icon: Icons.logout_rounded,
+              iconBgColor: const Color(0xFFFEE2E2),
+              iconColor: const Color(0xFFE11D48),
+              title: _isLoggingOut ? 'Logging out...' : 'Log Out',
+              titleColor: const Color(0xFFE11D48),
+              onTap: _isLoggingOut ? () {} : _confirmLogout,
+              trailing: _isLoggingOut
+                  ? SizedBox(
+                width: 16.w,
+                height: 16.w,
+                child: const CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFE11D48)),
+              )
+                  : null,
             ),
           ],
         ),
@@ -519,6 +601,8 @@ class ProfileScreen extends StatelessWidget {
     required Color iconColor,
     required String title,
     required VoidCallback onTap,
+    Color? titleColor,
+    Widget? trailing,
   }) {
     return InkWell(
       onTap: onTap,
@@ -546,11 +630,11 @@ class ProfileScreen extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 12.5.sp,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF0F172A),
+                color: titleColor ?? const Color(0xFF0F172A),
               ),
             ),
             const Spacer(),
-            Icon(Icons.arrow_forward_ios_rounded, size: 12.sp, color: const Color(0xFF94A3B8)),
+            trailing ?? Icon(Icons.arrow_forward_ios_rounded, size: 12.sp, color: const Color(0xFF94A3B8)),
           ],
         ),
       ),
