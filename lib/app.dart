@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'core/bindings/initial_binding.dart';
+import 'core/routes/app_pages.dart';
+import 'core/routes/app_routes.dart';
 import 'core/theme/app_colors.dart';
-import 'features/splash/presentation/splash_screen.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -14,7 +17,7 @@ class MyApp extends StatelessWidget {
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
-        return MaterialApp(
+        return GetMaterialApp(
           title: 'DigiNiwas',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
@@ -30,7 +33,9 @@ class MyApp extends StatelessWidget {
             fontFamily: GoogleFonts.poppins().fontFamily,
             textTheme: GoogleFonts.poppinsTextTheme(),
           ),
-          home: const SplashScreen(),
+          initialBinding: InitialBinding(),
+          initialRoute: AppRoutes.splash,
+          getPages: AppPages.routes,
         );
       },
     );

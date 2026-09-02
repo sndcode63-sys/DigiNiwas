@@ -1,26 +1,24 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
-import '../application/auth_provider.dart';
+import '../application/auth_controller.dart';
 import 'otp.dart';
 
-class RegistrationScreen extends ConsumerStatefulWidget {
-  /// Backend role this screen registers/logs the user in as — 'Buyer',
-  /// 'Seller' or 'Partner'. Comes from [ChooseRoleScreen], picked before
-  /// this screen is ever shown.
+class RegistrationScreen extends StatefulWidget {
   final String role;
 
   const RegistrationScreen({super.key, required this.role});
 
   @override
-  ConsumerState<RegistrationScreen> createState() => _RegistrationScreenState();
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
 
-class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
+class _RegistrationScreenState extends State<RegistrationScreen> {
+  final _authController = Get.find<AuthController>();
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -56,30 +54,25 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     setState(() => _isSubmitting = true);
 
     final phone = _phoneController.text.trim();
-    final success = await ref.read(authProvider.notifier).register(
-          name: _nameController.text.trim(),
-          phone: phone,
-          email: _emailController.text.trim(),
-          role: widget.role,
-        );
+    final success = await _authController.register(
+      name: _nameController.text.trim(),
+      phone: phone,
+      email: _emailController.text.trim(),
+      role: widget.role,
+    );
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
     if (success) {
       AppToast.success(context, 'OTP sent to $phone');
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OtpVerificationScreen(
+      Get.to(() => OtpVerificationScreen(
             phoneNumber: phone,
             mode: OtpFlowMode.register,
             role: widget.role,
-          ),
-        ),
-      );
+          ));
     } else {
-      _showError(ref.read(authProvider).errorMessage ?? 'Registration failed. Please try again.');
+      _showError(_authController.errorMessage.value ?? 'Registration failed. Please try again.');
     }
   }
 
@@ -156,7 +149,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     ),
                     SizedBox(height: 24.h),
 
-                    // Phone Input Field inside Bottom Sheet
                     _buildInputPill(
                       child: Row(
                         children: [
@@ -185,7 +177,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                                   isSheetValid = value.trim().length >= 10;
                                 });
 
-                                // Jab 10 digits poore ho jayein, keyboard hide kar do
                                 if (value.trim().length == 10) {
                                   FocusScope.of(context).unfocus();
                                 }
@@ -222,28 +213,23 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                             ? () async {
                           final phone = sheetPhoneController.text.trim();
                           setModalState(() => isSheetSubmitting = true);
-                          final success = await ref.read(authProvider.notifier).requestLoginOtp(
-                                phone: phone,
-                                role: widget.role,
-                              );
+                          final success = await _authController.requestLoginOtp(
+                            phone: phone,
+                            role: widget.role,
+                          );
                           if (!context.mounted) return;
                           setModalState(() => isSheetSubmitting = false);
 
                           if (success) {
-                            Navigator.pop(context);
+                            Get.back();
                             AppToast.success(this.context, 'OTP sent to $phone');
-                            Navigator.push(
-                              this.context,
-                              MaterialPageRoute(
-                                builder: (_) => OtpVerificationScreen(
+                            Get.to(() => OtpVerificationScreen(
                                   phoneNumber: phone,
                                   mode: OtpFlowMode.login,
                                   role: widget.role,
-                                ),
-                              ),
-                            );
+                                ));
                           } else {
-                            AppToast.error(this.context, ref.read(authProvider).errorMessage ?? 'Could not send OTP. Please try again.');
+                            AppToast.error(this.context, _authController.errorMessage.value ?? 'Could not send OTP. Please try again.');
                           }
                         }
                             : null,
@@ -286,7 +272,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     ),
                     SizedBox(height: 16.h),
 
-                    // Terms & Policy inside Bottom Sheet
                     RichText(
                       textAlign: TextAlign.center,
                       text: TextSpan(

@@ -1,6 +1,7 @@
 import 'package:diginiwas/features/auth/presentation/agent/property_details.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 class TaskScreen extends StatefulWidget {
   const TaskScreen({super.key});
@@ -317,12 +318,7 @@ class _TaskScreenState extends State<TaskScreen> {
                       alignment: Alignment.centerRight,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AgentAddPropertyFlowScreen(),
-                            ),
-                          );
+                          Get.to(() => const AgentAddPropertyFlowScreen());
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF005B48),

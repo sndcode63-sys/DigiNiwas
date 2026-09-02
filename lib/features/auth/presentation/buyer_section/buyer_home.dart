@@ -4,6 +4,7 @@ import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -62,30 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
       default:
         return _buildContent();
     }
-  }
-  Widget _buildTabPlaceholder(String title, Color bgColor, IconData icon, Color iconColor) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: bgColor,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 64.sp, color: iconColor),
-            SizedBox(height: 12.h),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   // ---------------------------------------------------------------------
@@ -529,12 +506,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return GestureDetector(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PropertyDetailsScreen(property: item),
-                ),
-              );
+              Get.to(() => PropertyDetailsScreen(property: item));
             },
             child: Container(
               width: 280.w,
@@ -1023,12 +995,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           ElevatedButton(
                             onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ExploreMapViewScreen(),
-                                ),
-                              );
+                              Get.to(() => const ExploreMapViewScreen());
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0F2544),
@@ -1640,7 +1607,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         IconButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () => Get.back(),
                           icon: Icon(Icons.close_rounded, size: 22.sp, color: const Color(0xFF64748B)),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -2213,7 +2180,7 @@ class ExploreMapViewScreen extends StatelessWidget {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () => Get.back(),
                   child: Container(
                     padding: EdgeInsets.all(10.r),
                     decoration: BoxDecoration(

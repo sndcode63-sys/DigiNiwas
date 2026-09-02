@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../registration_screen.dart';
@@ -30,12 +31,7 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
     final selected = _selectedRole;
     if (selected == null) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RegistrationScreen(role: _apiRole[selected]!),
-      ),
-    );
+    Get.to(() => RegistrationScreen(role: _apiRole[selected]!));
   }
 
   @override

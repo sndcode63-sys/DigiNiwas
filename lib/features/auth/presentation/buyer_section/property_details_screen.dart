@@ -3,6 +3,7 @@
 // =====================================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
 import 'package:share_plus/share_plus.dart'; // 👈 Real device sharing package
@@ -24,16 +25,11 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   bool _isFavorite = false;
 
   void _open360View(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PanoramaViewerScreen(
+    Get.to(() => PanoramaViewerScreen(
           imageUrl: widget.property['panorama_image'] ??
               'https://images.unsplash.com/photo-1557971370-e7298ee473fb?w=1600&auto=format&fit=crop&q=80',
           title: widget.property['name'] ?? 'Celestial Heights',
-        ),
-      ),
-    );
+        ));
   }
 
   // Helper function to launch WhatsApp safely
@@ -103,7 +99,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: () => Get.back(),
                       child: Container(
                         padding: EdgeInsets.all(4.r),
                         decoration: const BoxDecoration(
@@ -325,7 +321,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.pop(context);
+                    Get.back();
                     _launchWhatsApp("919876543210");
                   },
                   icon: Icon(Icons.chat_bubble_outline_rounded, size: 16.sp, color: Colors.white),
@@ -354,7 +350,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.pop(context);
+                    Get.back();
                     _makePhoneCall("9876543210");
                   },
                   icon: Icon(Icons.phone_outlined, size: 16.sp, color: Colors.white),
@@ -380,7 +376,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Get.back(),
                   icon: Icon(Icons.calendar_month_outlined, size: 16.sp, color: const Color(0xFF007A5E)),
                   label: Text(
                     'Request Instant Callback',
@@ -434,7 +430,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: const Color(0xFF0F172A), size: 20.sp),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
         title: Text(
           'Property Details',
@@ -1020,7 +1016,7 @@ class PanoramaViewerScreen extends StatelessWidget {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () => Get.back(),
                   child: Container(
                     padding: EdgeInsets.all(10.r),
                     decoration: BoxDecoration(

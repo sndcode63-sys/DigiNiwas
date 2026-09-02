@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 class CreditWalletScreen extends StatefulWidget {
   const CreditWalletScreen({super.key});
@@ -28,7 +29,7 @@ class _CreditWalletScreenState extends State<CreditWalletScreen> {
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () => Get.back(),
                         child: Icon(Icons.arrow_back, size: 20.sp, color: Colors.black87),
                       ),
                       SizedBox(width: 14.w),

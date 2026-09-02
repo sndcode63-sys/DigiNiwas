@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_toast.dart'; // <-- Yeh AppToast wali file import hai
-import '../application/auth_provider.dart';
+import '../application/auth_controller.dart';
 import 'agent/home_screen.dart';
 import 'buyer_section/buyer_home.dart' as buyer;
 import 'registration_screen.dart';
@@ -16,7 +16,7 @@ import 'seller/home_seller.dart';
 /// or logging an existing user back in.
 enum OtpFlowMode { register, login }
 
-class OtpVerificationScreen extends ConsumerStatefulWidget {
+class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
   final OtpFlowMode mode;
 
@@ -33,11 +33,12 @@ class OtpVerificationScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<OtpVerificationScreen> createState() =>
+  State<OtpVerificationScreen> createState() =>
       _OtpVerificationScreenState();
 }
 
-class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
+class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+  final _authController = Get.find<AuthController>();
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
@@ -110,7 +111,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   Future<void> _resendOtp() async {
     if (_isResending || _secondsRemaining > 0) return;
     setState(() => _isResending = true);
-    final success = await ref.read(authProvider.notifier).resendOtp();
+    final success = await _authController.resendOtp();
     if (!mounted) return;
     setState(() => _isResending = false);
 
@@ -118,7 +119,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       _startTimer();
       AppToast.success(context, 'OTP resent successfully.');
     } else {
-      final backendError = ref.read(authProvider).errorMessage;
+      final backendError = _authController.errorMessage.value;
       AppToast.error(context, backendError ?? 'Could not resend OTP.');
     }
   }
@@ -135,13 +136,13 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _isVerifying = true);
 
-    final success = await ref.read(authProvider.notifier).verifyOtp(otp);
+    final success = await _authController.verifyOtp(otp);
 
     if (!mounted) return;
     setState(() => _isVerifying = false);
 
     if (!success) {
-      final backendError = ref.read(authProvider).errorMessage;
+      final backendError = _authController.errorMessage.value;
       AppToast.error(context, backendError ?? 'Invalid OTP.');
       return;
     }
@@ -167,11 +168,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         destination = const buyer.HomeScreen();
     }
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => destination),
-      (route) => false,
-    );
+    Get.offAll(() => destination);
   }
 
   @override
@@ -274,7 +271,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                           IconButton(
                             icon: Icon(Icons.edit_outlined,
                                 color: AppColors.primaryDark, size: 20.sp),
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => Get.back(),
                           ),
                         ],
                       ),

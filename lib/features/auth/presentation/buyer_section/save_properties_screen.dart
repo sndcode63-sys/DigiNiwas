@@ -5,6 +5,7 @@ import 'package:diginiwas/features/auth/presentation/buyer_section/property_deta
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'compare_properties_detials_screen.dart';
@@ -88,14 +89,9 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ComparePropertiesScreen(
+    Get.to(() => ComparePropertiesScreen(
           comparedProperties: selectedItems,
-        ),
-      ),
-    );
+        ));
   }
 
   void _toggleCompareAll() {
@@ -566,12 +562,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                       flex: 1,
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PropertyDetailsScreen(property: item),
-                            ),
-                          );
+                          Get.to(() => PropertyDetailsScreen(property: item));
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0F2544),

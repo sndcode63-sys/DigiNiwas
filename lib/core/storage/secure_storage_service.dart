@@ -1,6 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Encrypted local storage — sirf tokens jaisa sensitive data yahan store karo.
 class SecureStorageService {
   SecureStorageService._internal();
   static final SecureStorageService instance = SecureStorageService._internal();
@@ -23,9 +22,7 @@ class SecureStorageService {
 
   Future<String?> getRefreshToken() => _storage.read(key: _refreshTokenKey);
 
-  /// JSON-encoded user profile (id/name/phone/role/...) returned at login,
-  /// so the app can restore the session on the next launch without asking
-  /// the user to log in again.
+
   Future<void> saveUserData(String userJson) =>
       _storage.write(key: _userDataKey, value: userJson);
 

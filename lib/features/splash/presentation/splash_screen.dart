@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../auth/application/auth_provider.dart';
+import '../../auth/data/auth_repository.dart';
 import '../../auth/presentation/agent/home_screen.dart';
 import '../../auth/presentation/buyer_section/buyer_home.dart' as buyer;
 import '../../auth/presentation/buyer_section/choose_roll.dart';
 import '../../auth/presentation/seller/home_seller.dart';
 
-class SplashScreen extends ConsumerStatefulWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen>
+class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -49,7 +49,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Future<void> _checkAuthAndNavigate() async {
     await Future.delayed(const Duration(milliseconds: 2500));
 
-    final session = await ref.read(authRepositoryProvider).getStoredSession();
+    final session = await Get.find<AuthRepository>().getStoredSession();
 
     if (!mounted) return;
 
@@ -76,9 +76,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       destination = const ChooseRoleScreen();
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => destination),
-    );
+    Get.off(() => destination);
   }
 
   @override

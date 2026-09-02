@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import 'map_view.dart';
 
@@ -191,10 +192,7 @@ class _HeaderSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 // Map View Click Action
                 _buildFilterButton(Icons.map_outlined, 'Map View', () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const MapViewScreen()),
-                  );
+                  Get.to(() => const MapViewScreen());
                 }, isPrimary: true),
               ],
             ),

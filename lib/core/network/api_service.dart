@@ -5,8 +5,6 @@ import '../constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
 import '../utils/app_logger.dart';
 
-/// Ek hi jagah se saari API calls — GET/POST/PUT/DELETE.
-/// Token automatically har request me attach ho jaata hai (interceptor se).
 class ApiService {
   ApiService._internal() {
     _dio = Dio(
@@ -36,13 +34,11 @@ class ApiService {
             error,
             error.stackTrace,
           );
-          // 🔧 Yahan 401 -> refresh token logic add kar sakte ho baad me
           return handler.next(error);
         },
       ),
     );
 
-    // Clean, colored request/response logs — sirf debug builds me chalega
     _dio.interceptors.add(
       PrettyDioLogger(
         requestHeader: true,
@@ -59,11 +55,7 @@ class ApiService {
   static final ApiService instance = ApiService._internal();
   late final Dio _dio;
 
-  /// Render's free tier sleeps the backend when idle — the very first
-  /// request after that can time out even though the server is fine and
-  /// just needs a moment to spin up. Retry once automatically so the user
-  /// isn't shown an error for something that resolves itself in a few
-  /// seconds.
+
   Future<Response> _withColdStartRetry(Future<Response> Function() call) async {
     try {
       return await call();
