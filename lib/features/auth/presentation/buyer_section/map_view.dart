@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 class MapViewScreen extends StatefulWidget {
@@ -115,7 +115,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             IconButton(
-                              onPressed: () => Get.back(),
+                              onPressed: () => context.pop(),
                               icon: const Icon(Icons.arrow_back_ios, size: 20),
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.white,
@@ -215,7 +215,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                                 child: GestureDetector(
                                   onTap: () {
                                     setState(() => _selectedTabIndex = 0);
-                                    Get.back();
+                                    context.pop();
                                   },
                                   child: Container(
                                     alignment: Alignment.center,

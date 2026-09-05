@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../core/utils/app_logger.dart';
 
@@ -38,6 +39,7 @@ class AuthRepository {
     required String phone,
     String? email,
     String role = defaultRole,
+    LocationResult? location,
   }) async {
     try {
       final response = await _apiService.post(
@@ -48,6 +50,13 @@ class AuthRepository {
           if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
           'password': _generatePassword(phone),
           'role': role,
+          // Nested shape matching the backend's GeoJSON-style schema —
+          // this is what actually gets saved into `location.coordinates`.
+          if (location != null) 'location': location.toLocationPayload(),
+          // Also send flat lat/lng in case any other backend code path
+          // reads these directly; harmless if ignored.
+          if (location != null) 'latitude': location.latitude,
+          if (location != null) 'longitude': location.longitude,
         },
       );
       final data = _asMap(response.data);
@@ -88,11 +97,19 @@ class AuthRepository {
     required String phone,
     required String otp,
     String role = defaultRole,
+    LocationResult? location,
   }) async {
     try {
       final response = await _apiService.post(
         ApiConstants.loginOtp,
-        data: {'phone': phone, 'otp': otp, 'role': role},
+        data: {
+          'phone': phone,
+          'otp': otp,
+          'role': role,
+          if (location != null) 'location': location.toLocationPayload(),
+          if (location != null) 'latitude': location.latitude,
+          if (location != null) 'longitude': location.longitude,
+        },
       );
       final data = _asMap(response.data);
       _throwIfUnsuccessful(data, fallback: 'Invalid or expired OTP. Please try again.');
@@ -196,4 +213,3 @@ class AuthRepository {
     return fallback;
   }
 }
-

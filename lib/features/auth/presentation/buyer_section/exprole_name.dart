@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 
-import 'map_view.dart';
+import '../../../../core/routes/app_routes.dart';
+
 
 class ExproleName extends StatefulWidget {
   const ExproleName({Key? key}) : super(key: key);
@@ -192,7 +193,7 @@ class _HeaderSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 // Map View Click Action
                 _buildFilterButton(Icons.map_outlined, 'Map View', () {
-                  Get.to(() => const MapViewScreen());
+                  context.push(AppRoutes.mapView);
                 }, isPrimary: true),
               ],
             ),

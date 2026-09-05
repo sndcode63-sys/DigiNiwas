@@ -1,24 +1,25 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../application/auth_controller.dart';
 import 'otp.dart';
 
-class RegistrationScreen extends StatefulWidget {
+class RegistrationScreen extends ConsumerStatefulWidget {
   final String role;
 
   const RegistrationScreen({super.key, required this.role});
 
   @override
-  State<RegistrationScreen> createState() => _RegistrationScreenState();
+  ConsumerState<RegistrationScreen> createState() => _RegistrationScreenState();
 }
 
-class _RegistrationScreenState extends State<RegistrationScreen> {
-  final _authController = Get.find<AuthController>();
+class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -54,7 +55,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() => _isSubmitting = true);
 
     final phone = _phoneController.text.trim();
-    final success = await _authController.register(
+    final success = await ref.read(authControllerProvider.notifier).register(
       name: _nameController.text.trim(),
       phone: phone,
       email: _emailController.text.trim(),
@@ -66,13 +67,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     if (success) {
       AppToast.success(context, 'OTP sent to $phone');
-      Get.to(() => OtpVerificationScreen(
-            phoneNumber: phone,
-            mode: OtpFlowMode.register,
-            role: widget.role,
-          ));
+      final locationError = ref.read(authControllerProvider).locationError;
+      if (locationError != null) {
+        AppToast.error(context, locationError);
+      }
+      context.push(
+        AppRoutes.otp,
+        extra: {
+          'phoneNumber': phone,
+          'mode': OtpFlowMode.register,
+          'role': widget.role,
+        },
+      );
     } else {
-      _showError(_authController.errorMessage.value ?? 'Registration failed. Please try again.');
+      _showError(
+        ref.read(authControllerProvider).errorMessage ?? 'Registration failed. Please try again.',
+      );
     }
   }
 
@@ -213,7 +223,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             ? () async {
                           final phone = sheetPhoneController.text.trim();
                           setModalState(() => isSheetSubmitting = true);
-                          final success = await _authController.requestLoginOtp(
+                          final success = await ref.read(authControllerProvider.notifier).requestLoginOtp(
                             phone: phone,
                             role: widget.role,
                           );
@@ -221,15 +231,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           setModalState(() => isSheetSubmitting = false);
 
                           if (success) {
-                            Get.back();
+                            context.pop();
                             AppToast.success(this.context, 'OTP sent to $phone');
-                            Get.to(() => OtpVerificationScreen(
-                                  phoneNumber: phone,
-                                  mode: OtpFlowMode.login,
-                                  role: widget.role,
-                                ));
+                            context.push(
+                              AppRoutes.otp,
+                              extra: {
+                                'phoneNumber': phone,
+                                'mode': OtpFlowMode.login,
+                                'role': widget.role,
+                              },
+                            );
                           } else {
-                            AppToast.error(this.context, _authController.errorMessage.value ?? 'Could not send OTP. Please try again.');
+                            AppToast.error(this.context, ref.read(authControllerProvider).errorMessage ?? 'Could not send OTP. Please try again.');
                           }
                         }
                             : null,

@@ -3,11 +3,13 @@
 // =====================================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
 import 'package:share_plus/share_plus.dart'; // 👈 Real device sharing package
 import 'package:url_launcher/url_launcher.dart';
+
+import '../../../../core/routes/app_routes.dart';
 
 class PropertyDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> property;
@@ -25,11 +27,14 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   bool _isFavorite = false;
 
   void _open360View(BuildContext context) {
-    Get.to(() => PanoramaViewerScreen(
-          imageUrl: widget.property['panorama_image'] ??
-              'https://images.unsplash.com/photo-1557971370-e7298ee473fb?w=1600&auto=format&fit=crop&q=80',
-          title: widget.property['name'] ?? 'Celestial Heights',
-        ));
+    context.push(
+      AppRoutes.panoramaViewer,
+      extra: {
+        'imageUrl': widget.property['panorama_image'] ??
+            'https://images.unsplash.com/photo-1557971370-e7298ee473fb?w=1600&auto=format&fit=crop&q=80',
+        'title': widget.property['name'] ?? 'Celestial Heights',
+      },
+    );
   }
 
   // Helper function to launch WhatsApp safely
@@ -99,7 +104,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: GestureDetector(
-                      onTap: () => Get.back(),
+                      onTap: () => context.pop(),
                       child: Container(
                         padding: EdgeInsets.all(4.r),
                         decoration: const BoxDecoration(
@@ -321,7 +326,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Get.back();
+                    context.pop();
                     _launchWhatsApp("919876543210");
                   },
                   icon: Icon(Icons.chat_bubble_outline_rounded, size: 16.sp, color: Colors.white),
@@ -350,7 +355,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Get.back();
+                    context.pop();
                     _makePhoneCall("9876543210");
                   },
                   icon: Icon(Icons.phone_outlined, size: 16.sp, color: Colors.white),
@@ -376,7 +381,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => Get.back(),
+                  onPressed: () => context.pop(),
                   icon: Icon(Icons.calendar_month_outlined, size: 16.sp, color: const Color(0xFF007A5E)),
                   label: Text(
                     'Request Instant Callback',
@@ -430,7 +435,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: const Color(0xFF0F172A), size: 20.sp),
-          onPressed: () => Get.back(),
+          onPressed: () => context.pop(),
         ),
         title: Text(
           'Property Details',
@@ -1016,7 +1021,7 @@ class PanoramaViewerScreen extends StatelessWidget {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: () => Get.back(),
+                  onTap: () => context.pop(),
                   child: Container(
                     padding: EdgeInsets.all(10.r),
                     decoration: BoxDecoration(

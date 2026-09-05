@@ -4,11 +4,12 @@ import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/routes/app_routes.dart';
 import '../../../../core/utils/shimmer.dart';
 import 'exprole_name.dart';
 import 'niwas_ai_section.dart';
@@ -506,7 +507,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return GestureDetector(
             onTap: () {
-              Get.to(() => PropertyDetailsScreen(property: item));
+              context.push(AppRoutes.propertyDetails, extra: {'property': item});
             },
             child: Container(
               width: 280.w,
@@ -995,7 +996,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           ElevatedButton(
                             onPressed: () {
-                              Get.to(() => const ExploreMapViewScreen());
+                              context.push(AppRoutes.exploreMap);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0F2544),
@@ -1607,7 +1608,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         IconButton(
-                          onPressed: () => Get.back(),
+                          onPressed: () => Navigator.of(context).pop(),
                           icon: Icon(Icons.close_rounded, size: 22.sp, color: const Color(0xFF64748B)),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
@@ -2180,7 +2181,7 @@ class ExploreMapViewScreen extends StatelessWidget {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: () => Get.back(),
+                  onTap: () => context.pop(),
                   child: Container(
                     padding: EdgeInsets.all(10.r),
                     decoration: BoxDecoration(

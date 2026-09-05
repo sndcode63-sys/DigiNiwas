@@ -2,23 +2,23 @@
 // USER PROFILE SCREEN (MATCHING SCREENSHOT UI)
 // =====================================================================
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/routes/app_routes.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../application/auth_controller.dart';
-import 'choose_roll.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  final _authController = Get.find<AuthController>();
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoggingOut = false;
 
   Future<void> _confirmLogout() async {
@@ -38,14 +38,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actionsPadding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
         actions: [
           TextButton(
-            onPressed: () => Get.back(result: false),
+            onPressed: () => Navigator.of(context).pop(false),
             child: Text(
               'Cancel',
               style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
             ),
           ),
           ElevatedButton(
-            onPressed: () => Get.back(result: true),
+            onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE11D48),
               elevation: 0,
@@ -63,13 +63,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _isLoggingOut = true);
-    await _authController.logout();
+    await ref.read(authControllerProvider.notifier).logout();
 
     if (!mounted) return;
     setState(() => _isLoggingOut = false);
 
     AppToast.success(context, 'Logged out successfully');
-    Get.offAll(() => const ChooseRoleScreen());
+    if (!context.mounted) return;
+    context.go(AppRoutes.chooseRole);
   }
 
   @override

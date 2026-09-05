@@ -1,22 +1,21 @@
 import 'dart:async';
+import 'package:diginiwas/features/auth/presentation/registration_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_toast.dart'; // <-- Yeh AppToast wali file import hai
 import '../application/auth_controller.dart';
-import 'agent/home_screen.dart';
-import 'buyer_section/buyer_home.dart' as buyer;
-import 'registration_screen.dart';
-import 'seller/home_seller.dart';
 
 /// Whether this OTP screen is verifying a brand-new registration
 /// or logging an existing user back in.
 enum OtpFlowMode { register, login }
 
-class OtpVerificationScreen extends StatefulWidget {
+class OtpVerificationScreen extends ConsumerStatefulWidget {
   final String phoneNumber;
   final OtpFlowMode mode;
 
@@ -33,12 +32,11 @@ class OtpVerificationScreen extends StatefulWidget {
   });
 
   @override
-  State<OtpVerificationScreen> createState() =>
+  ConsumerState<OtpVerificationScreen> createState() =>
       _OtpVerificationScreenState();
 }
 
-class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final _authController = Get.find<AuthController>();
+class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
@@ -111,7 +109,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   Future<void> _resendOtp() async {
     if (_isResending || _secondsRemaining > 0) return;
     setState(() => _isResending = true);
-    final success = await _authController.resendOtp();
+    final success = await ref.read(authControllerProvider.notifier).resendOtp();
     if (!mounted) return;
     setState(() => _isResending = false);
 
@@ -119,7 +117,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _startTimer();
       AppToast.success(context, 'OTP resent successfully.');
     } else {
-      final backendError = _authController.errorMessage.value;
+      final backendError = ref.read(authControllerProvider).errorMessage;
       AppToast.error(context, backendError ?? 'Could not resend OTP.');
     }
   }
@@ -136,13 +134,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _isVerifying = true);
 
-    final success = await _authController.verifyOtp(otp);
+    final success = await ref.read(authControllerProvider.notifier).verifyOtp(otp);
 
     if (!mounted) return;
     setState(() => _isVerifying = false);
 
     if (!success) {
-      final backendError = _authController.errorMessage.value;
+      final backendError = ref.read(authControllerProvider).errorMessage;
       AppToast.error(context, backendError ?? 'Invalid OTP.');
       return;
     }
@@ -154,21 +152,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           : 'Login successful!',
     );
 
-    Widget destination;
-    switch (widget.role.toLowerCase()) {
-      case 'seller':
-        destination = const SellerHomeScreen();
-        break;
-      case 'partner':
-      case 'agent':
-        destination = const PartnerDashboardScreen();
-        break;
-      case 'buyer':
-      default:
-        destination = const buyer.HomeScreen();
-    }
-
-    Get.offAll(() => destination);
+    context.go(dashboardRouteForRole(widget.role));
   }
 
   @override
@@ -187,7 +171,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const DigiNiwasLogo(),
+                   DigiNiwasLogo(),
                   SizedBox(height: 24.h),
 
                   // Title & Subtitle
@@ -271,7 +255,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           IconButton(
                             icon: Icon(Icons.edit_outlined,
                                 color: AppColors.primaryDark, size: 20.sp),
-                            onPressed: () => Get.back(),
+                            onPressed: () => context.pop(),
                           ),
                         ],
                       ),

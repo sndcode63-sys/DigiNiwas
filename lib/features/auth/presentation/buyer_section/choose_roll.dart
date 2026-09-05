@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../registration_screen.dart';
 
 class ChooseRoleScreen extends StatefulWidget {
   const ChooseRoleScreen({super.key});
@@ -31,7 +31,7 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
     final selected = _selectedRole;
     if (selected == null) return;
 
-    Get.to(() => RegistrationScreen(role: _apiRole[selected]!));
+    context.push(AppRoutes.registration, extra: {'role': _apiRole[selected]!});
   }
 
   @override

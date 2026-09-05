@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:get_storage/get_storage.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'core/utils/app_logger.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   AppLogger.i('🚀 App started');
-  await GetStorage.init();
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }

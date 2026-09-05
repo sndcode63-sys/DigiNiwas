@@ -1,75 +1,111 @@
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:get_storage/get_storage.dart';
+import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Lightweight app-preferences store (non-sensitive data only — tokens
+/// live in [SecureStorageService]). Backed by `shared_preferences`.
+///
+/// Matches this login/register response shape:
+/// {
+///   success: true,
+///   token: "...",
+///   data: {
+///     id, sellerId, partnerId, name, phone, role, partnerType, location
+///   }
+/// }
 class StorageService {
   StorageService._();
-  static final GetStorage _box = GetStorage();
+  static final StorageService instance = StorageService._();
+
+  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
   // -----------------------------------------------------------------
   // SAVE — call this right after a successful login-otp / login-password
   // / register response. Pass the `data` map from the API response.
-  //
-  // Matches this response shape:
-  // {
-  //   success: true,
-  //   token: "...",
-  //   data: {
-  //     id, sellerId, partnerId, name, phone, role, partnerType, location
-  //   }
-  // }
   // -----------------------------------------------------------------
-  static Future<void> saveSession({
+  Future<void> saveSession({
     required String token,
     required Map<String, dynamic> data,
   }) async {
-    await _box.write(StorageKeys.token, token);
-    await _box.write(StorageKeys.userId, data['id']?.toString());
-    await _box.write(StorageKeys.buyerId, data['id']?.toString()); // buyer flow me userId == buyerId
-    await _box.write(StorageKeys.sellerId, data['sellerId']?.toString());
-    await _box.write(StorageKeys.partnerId, data['partnerId']?.toString());
-    await _box.write(StorageKeys.name, data['name']?.toString());
-    await _box.write(StorageKeys.phone, data['phone']?.toString());
-    await _box.write(StorageKeys.role, data['role']?.toString());
-    await _box.write(StorageKeys.partnerType, data['partnerType']?.toString());
-    await _box.write(StorageKeys.location, data['location']);
-    await _box.write(StorageKeys.isLoggedIn, true);
+    final prefs = await _prefs;
+    await prefs.setString(StorageKeys.token, token);
+    await _writeOrRemove(prefs, StorageKeys.userId, data['id']?.toString());
+    // buyer flow me userId == buyerId
+    await _writeOrRemove(prefs, StorageKeys.buyerId, data['id']?.toString());
+    await _writeOrRemove(prefs, StorageKeys.sellerId, data['sellerId']?.toString());
+    await _writeOrRemove(prefs, StorageKeys.partnerId, data['partnerId']?.toString());
+    await _writeOrRemove(prefs, StorageKeys.name, data['name']?.toString());
+    await _writeOrRemove(prefs, StorageKeys.phone, data['phone']?.toString());
+    await _writeOrRemove(prefs, StorageKeys.role, data['role']?.toString());
+    await _writeOrRemove(prefs, StorageKeys.partnerType, data['partnerType']?.toString());
+    if (data['location'] != null) {
+      await prefs.setString(StorageKeys.location, jsonEncode(data['location']));
+    }
+    await prefs.setBool(StorageKeys.isLoggedIn, true);
+  }
+
+  /// Persists the last device GPS fix (captured on login/registration via
+  /// [LocationService]) so the rest of the app — e.g. "properties near
+  /// me" — can reuse it without asking for permission again every time.
+  Future<void> saveLastKnownCoordinates({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final prefs = await _prefs;
+    await prefs.setDouble(StorageKeys.lastLat, latitude);
+    await prefs.setDouble(StorageKeys.lastLng, longitude);
+  }
+
+  Future<({double latitude, double longitude})?> getLastKnownCoordinates() async {
+    final prefs = await _prefs;
+    final lat = prefs.getDouble(StorageKeys.lastLat);
+    final lng = prefs.getDouble(StorageKeys.lastLng);
+    if (lat == null || lng == null) return null;
+    return (latitude: lat, longitude: lng);
   }
 
   // -----------------------------------------------------------------
   // READ helpers
   // -----------------------------------------------------------------
-  static String? get token => _box.read<String>(StorageKeys.token);
-  static String? get userId => _box.read<String>(StorageKeys.userId);
-  static String? get buyerId => _box.read<String>(StorageKeys.buyerId);
-  static String? get sellerId => _box.read<String>(StorageKeys.sellerId);
-  static String? get partnerId => _box.read<String>(StorageKeys.partnerId);
-  static String? get name => _box.read<String>(StorageKeys.name);
-  static String? get phone => _box.read<String>(StorageKeys.phone);
-  static String? get role => _box.read<String>(StorageKeys.role);
-  static String? get partnerType => _box.read<String>(StorageKeys.partnerType);
-  static dynamic get location => _box.read(StorageKeys.location);
-  static bool get isLoggedIn => _box.read<bool>(StorageKeys.isLoggedIn) ?? false;
+  Future<String?> get token async => (await _prefs).getString(StorageKeys.token);
+  Future<String?> get userId async => (await _prefs).getString(StorageKeys.userId);
+  Future<String?> get buyerId async => (await _prefs).getString(StorageKeys.buyerId);
+  Future<String?> get sellerId async => (await _prefs).getString(StorageKeys.sellerId);
+  Future<String?> get partnerId async => (await _prefs).getString(StorageKeys.partnerId);
+  Future<String?> get name async => (await _prefs).getString(StorageKeys.name);
+  Future<String?> get phone async => (await _prefs).getString(StorageKeys.phone);
+  Future<String?> get role async => (await _prefs).getString(StorageKeys.role);
+  Future<String?> get partnerType async => (await _prefs).getString(StorageKeys.partnerType);
+  Future<bool> get isLoggedIn async => (await _prefs).getBool(StorageKeys.isLoggedIn) ?? false;
 
   // -----------------------------------------------------------------
   // CLEAR — call this on logout
   // -----------------------------------------------------------------
-  static Future<void> clearSession() async {
-    await _box.remove(StorageKeys.token);
-    await _box.remove(StorageKeys.userId);
-    await _box.remove(StorageKeys.buyerId);
-    await _box.remove(StorageKeys.sellerId);
-    await _box.remove(StorageKeys.partnerId);
-    await _box.remove(StorageKeys.name);
-    await _box.remove(StorageKeys.phone);
-    await _box.remove(StorageKeys.role);
-    await _box.remove(StorageKeys.partnerType);
-    await _box.remove(StorageKeys.location);
-    await _box.write(StorageKeys.isLoggedIn, false);
+  Future<void> clearSession() async {
+    final prefs = await _prefs;
+    await prefs.remove(StorageKeys.token);
+    await prefs.remove(StorageKeys.userId);
+    await prefs.remove(StorageKeys.buyerId);
+    await prefs.remove(StorageKeys.sellerId);
+    await prefs.remove(StorageKeys.partnerId);
+    await prefs.remove(StorageKeys.name);
+    await prefs.remove(StorageKeys.phone);
+    await prefs.remove(StorageKeys.role);
+    await prefs.remove(StorageKeys.partnerType);
+    await prefs.remove(StorageKeys.location);
+    await prefs.setBool(StorageKeys.isLoggedIn, false);
+    // Deliberately keep lastLat/lastLng — still useful as a default
+    // map center even after logout.
+  }
+
+  Future<void> _writeOrRemove(SharedPreferences prefs, String key, String? value) async {
+    if (value == null) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setString(key, value);
+    }
   }
 }
-
-
 
 class StorageKeys {
   StorageKeys._();
@@ -85,33 +121,6 @@ class StorageKeys {
   static const String partnerType = 'partner_type';
   static const String location = 'user_location';
   static const String isLoggedIn = 'is_logged_in';
-}
-
-void onLoginOtpSuccess(Map<String, dynamic> responseData) async {
-  // responseData shape:
-  // { success: true, message: "...", token: "...", data: {...} }
-
-  final token = responseData['token'] as String;
-  final data = responseData['data'] as Map<String, dynamic>;
-
-  //  YE LINE ADD KARO
-  await StorageService.saveSession(token: token, data: data);
-
-
-
-  Get.offAllNamed('/home');
-}
-
-void onRegisterSuccess(Map<String, dynamic> responseData) async {
-  final token = responseData['token'] as String;
-  final data = responseData['data'] as Map<String, dynamic>;
-
-  await StorageService.saveSession(token: token, data: data);
-
-  Get.offAllNamed('/home');
-}
-
-void onLogout() async {
-  await StorageService.clearSession();
-  Get.offAllNamed('/login');
+  static const String lastLat = 'last_lat';
+  static const String lastLng = 'last_lng';
 }

@@ -1,6 +1,6 @@
-/// All named GetX routes live here. Use `Get.toNamed(AppRoutes.xxx)` (or
-/// `Get.offNamed` / `Get.offAllNamed` for replace-style navigation) instead
-/// of `Navigator.push` anywhere in the app.
+/// All go_router paths live here. Navigate with the `context.go` /
+/// `context.push` / `context.pop` extensions from `go_router` — see
+/// `app_router.dart` for how each path maps to a screen.
 abstract class AppRoutes {
   AppRoutes._();
 
