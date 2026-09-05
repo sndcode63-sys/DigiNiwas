@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:diginiwas/features/auth/presentation/buyer_section/property_details_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/save_properties_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_screen.dart';
@@ -11,6 +13,10 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/utils/shimmer.dart';
+import '../../../../core/models/home_feed_model.dart';
+import '../../../../core/network/api_service.dart';
+import '../../../../core/storage/secure_storage_service.dart';
+import '../../data/home_repository.dart';
 import 'exprole_name.dart';
 import 'niwas_ai_section.dart';
 
@@ -22,15 +28,174 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // Auth (Bearer token) is already attached to every request by
+  // ApiService's interceptor — see core/network/api_service.dart — so we
+  // just need to call the endpoint like any other authenticated request.
+  final HomeRepository _homeRepository = HomeRepository(ApiService.instance);
+
   bool _isLoading = true;
+  String? _error;
+  HomeFeedResponse? _homeFeed;
+  String _buyerName = 'Guest';
+
+  // Secondary sections — each loaded independently so one failing doesn't
+  // block the others; each keeps its own loading flag for a small inline
+  // spinner instead of blocking the whole screen.
+  List<HomeProperty> _boostedProperties = [];
+  bool _boostedLoading = true;
+
+  List<HomeProperty> _newListings = [];
+  bool _newListingsLoading = true;
+
+  List<NearbyAgent> _nearbyAgents = [];
+  bool _agentsLoading = true;
+
+  ExploreNearbyResponse? _exploreNearby;
+  bool _exploreLoading = true;
+
   int _bottomNavIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _isLoading = false);
+    _loadBuyerName();
+    _loadHomeFeed();
+    _loadSecondarySections();
+  }
+
+  Future<void> _loadBuyerName() async {
+    final raw = await SecureStorageService.instance.getUserData();
+    if (raw == null || raw.isEmpty || !mounted) return;
+    try {
+      final user = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      final name = (user['name'] as String?)?.trim();
+      if (name != null && name.isNotEmpty) {
+        setState(() => _buyerName = name.split(' ').first);
+      }
+    } catch (_) {
+      // Ignore malformed cached user data — keep the fallback name.
+    }
+  }
+
+  // GET /api/v1/home/feed
+  Future<void> _loadHomeFeed() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
     });
+    try {
+      final feed = await _homeRepository.getHomeFeed();
+      if (!mounted) return;
+      setState(() {
+        _homeFeed = feed;
+        _isLoading = false;
+      });
+      // The explore-nearby section needs a propertyId anchor — use the
+      // feed's recommended property once we have it.
+      _loadExploreNearby();
+    } on HomeFeedException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Something went wrong while loading the home feed.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Kicks off the Boosted / New Listings / Agents calls in parallel.
+  /// (Explore-nearby is fired separately from [_loadHomeFeed] once we know
+  /// which property to anchor the map on.)
+  void _loadSecondarySections() {
+    _loadBoostedProperties();
+    _loadNewListings();
+    _loadNearbyAgents();
+  }
+
+  // GET /api/v1/properties/boosted
+  Future<void> _loadBoostedProperties() async {
+    setState(() => _boostedLoading = true);
+    try {
+      final properties = await _homeRepository.getBoostedProperties();
+      if (!mounted) return;
+      setState(() {
+        _boostedProperties = properties;
+        _boostedLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _boostedLoading = false);
+    }
+  }
+
+  // GET /api/v1/properties/new-listings
+  Future<void> _loadNewListings() async {
+    setState(() => _newListingsLoading = true);
+    try {
+      final properties = await _homeRepository.getNewListings();
+      if (!mounted) return;
+      setState(() {
+        _newListings = properties;
+        _newListingsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _newListingsLoading = false);
+    }
+  }
+
+  // GET /api/v1/agents/nearby
+  Future<void> _loadNearbyAgents() async {
+    setState(() => _agentsLoading = true);
+    try {
+      final agents = await _homeRepository.getNearbyAgents();
+      if (!mounted) return;
+      setState(() {
+        _nearbyAgents = agents;
+        _agentsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _agentsLoading = false);
+    }
+  }
+
+  // GET /api/v1/properties/explore-nearby?propertyId=...
+  Future<void> _loadExploreNearby() async {
+    final propertyId = _homeFeed?.firstRecommendedProperty?.propertyId;
+    if (propertyId == null || propertyId.isEmpty) {
+      if (mounted) setState(() => _exploreLoading = false);
+      return;
+    }
+    setState(() => _exploreLoading = true);
+    try {
+      final result = await _homeRepository.getExploreNearby(propertyId: propertyId);
+      if (!mounted) return;
+      setState(() {
+        _exploreNearby = result;
+        _exploreLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _exploreLoading = false);
+    }
+  }
+
+  Future<void> _refreshAll() async {
+    await _loadHomeFeed();
+    _loadSecondarySections();
+  }
+
+  String _greetingByTime() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
   }
 
   @override
@@ -70,12 +235,16 @@ class _HomeScreenState extends State<HomeScreen> {
   // MAIN CONTENT (HOME TAB)
   // ---------------------------------------------------------------------
   Widget _buildContent() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: _refreshAll,
+      color: const Color(0xFF007A5E),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(),
+          if (_error != null) _buildFeedErrorBanner(),
           SizedBox(height: 14.h),
           _buildCategoryChips(),
           SizedBox(height: 14.h),
@@ -97,7 +266,11 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: 8.h),
           _buildNewListings(),
           SizedBox(height: 18.h),
-          _buildSectionTitle('Popular in Ambala'),
+          _buildSectionTitle(
+            _homeFeed?.location?.city != null && _homeFeed!.location!.city!.isNotEmpty
+                ? 'Popular near ${_homeFeed!.location!.city}'
+                : 'Popular Near You',
+          ),
           SizedBox(height: 8.h),
           _buildPopularAreas(),
           SizedBox(height: 18.h),
@@ -107,6 +280,41 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: 22.h),
           _buildFutureEcosystem(),
           SizedBox(height: 110.h),
+        ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // ERROR BANNER (shown when the home feed API call fails)
+  // ---------------------------------------------------------------------
+  Widget _buildFeedErrorBanner() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 0),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDECEC),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: const Color(0xFFF5B5B5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: const Color(0xFFC62828), size: 18.sp),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Text(
+              _error ?? 'Could not load home feed.',
+              style: GoogleFonts.poppins(fontSize: 11.5.sp, color: const Color(0xFFC62828)),
+            ),
+          ),
+          TextButton(
+            onPressed: _loadHomeFeed,
+            child: Text(
+              'Retry',
+              style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFFC62828)),
+            ),
+          ),
         ],
       ),
     );
@@ -210,7 +418,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Icon(Icons.location_on_outlined, color: const Color(0xFF4EE1A0), size: 14.sp),
               SizedBox(width: 4.w),
               Text(
-                'Ambala, Haryana',
+                _homeFeed?.location?.displayLabel.isNotEmpty == true
+                    ? _homeFeed!.location!.displayLabel
+                    : 'Fetching location...',
                 style: GoogleFonts.poppins(
                   color: Colors.white.withOpacity(0.85),
                   fontSize: 12.sp,
@@ -223,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(height: 18.h),
           Text(
-            'Good Morning, Rahul',
+            '${_greetingByTime()}, $_buyerName',
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 22.sp,
@@ -236,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Icon(Icons.check_circle_outline_rounded, color: const Color(0xFF4EE1A0), size: 14.sp),
               SizedBox(width: 6.w),
               Text(
-                '3 verified homes match your preferences',
+                '${_homeFeed?.recommendedPropertiesCount ?? 0} verified homes match your preferences',
                 style: GoogleFonts.poppins(
                   color: const Color(0xFFB0C3D9),
                   fontSize: 12.sp,
@@ -465,7 +675,25 @@ class _HomeScreenState extends State<HomeScreen> {
 // RECOMMENDED FOR YOU (UPDATED WITH ONTAP NAVIGATION)
 // ---------------------------------------------------------------------
   Widget _buildRecommendedCards() {
-    final properties = [
+    // The `/v1/home/feed` API only returns a single
+    // `firstRecommendedProperty` (a preview) — the full recommended list
+    // lives behind `/v1/properties/categories`. Use the real one when we
+    // have it, and fall back to placeholders only if the API returned
+    // nothing (e.g. no listings near the buyer yet, or the call failed).
+    final apiProperty = _homeFeed?.firstRecommendedProperty;
+    final properties = apiProperty != null
+        ? [
+            {
+              'name': apiProperty.title ?? 'Property',
+              'address': apiProperty.displayAddress,
+              'bhk': apiProperty.bhkLabel,
+              'sqft': '',
+              'status': apiProperty.statusLabel,
+              'price': apiProperty.formattedPrice,
+              'image': apiProperty.thumbnailUrl,
+            },
+          ]
+        : [
       {
         'name': 'Celestial Heights',
         'address': 'Bopal, Ahmedabad',
@@ -667,26 +895,64 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   // ---------------------------------------------------------------------
+  // SHARED: simple horizontal shimmer placeholder for sections still
+  // loading their own API call.
+  // ---------------------------------------------------------------------
+  Widget _buildHorizontalSectionShimmer({required double height}) {
+    return SizedBox(
+      height: height,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        itemCount: 3,
+        physics: const NeverScrollableScrollPhysics(),
+        itemBuilder: (context, index) => Container(
+          width: 180.w,
+          margin: EdgeInsets.only(right: 14.w),
+          child: ShimmerWidget.box(borderRadius: 16, height: height),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptySectionMessage(String message) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 16.h),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14.r),
+          border: Border.all(color: const Color(0xFFEDF2F7)),
+        ),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(fontSize: 12.sp, color: const Color(0xFF64748B)),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
   // BOOSTED PROPERTIES
   // ---------------------------------------------------------------------
   Widget _buildBoostedSection() {
-    final boostedItems = [
-      {
-        'title': 'Skyline Apartments',
-        'image': 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80',
-        'isBrandLogo': true,
-      },
-      {
-        'title': 'Riverside Heights',
-        'image': 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
-        'isBrandLogo': false,
-      },
-      {
-        'title': 'Grand Residency',
-        'image': 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&auto=format&fit=crop&q=80',
-        'isBrandLogo': false,
-      },
-    ];
+    // GET /v1/properties/boosted
+    if (_boostedLoading) {
+      return _buildHorizontalSectionShimmer(height: 130.h);
+    }
+    if (_boostedProperties.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final boostedItems = _boostedProperties
+        .map((p) => {
+              'title': p.title ?? 'Property',
+              'image': p.thumbnailUrl,
+              'isBrandLogo': false,
+            })
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -855,19 +1121,47 @@ class _HomeScreenState extends State<HomeScreen> {
   // EXPLORE NEAR YOU (REAL MAP + AMENITIES)
   // ---------------------------------------------------------------------
   Widget _buildExploreMap() {
-    final centerLocation = const LatLng(30.3782, 76.7767);
+    // GET /v1/properties/explore-nearby?propertyId=...
+    final explore = _exploreNearby;
+    final centerLocation = explore != null
+        ? LatLng(explore.centerLatitude, explore.centerLongitude)
+        : const LatLng(30.3782, 76.7767);
 
-    final amenities = [
-      {'icon': Icons.school_outlined, 'color': const Color(0xFF3B82F6), 'label': 'Schools', 'distance': '1.2km'},
-      {'icon': Icons.local_hospital_outlined, 'color': const Color(0xFFEF4444), 'label': 'Hospitals', 'distance': '2.5km'},
-      {'icon': Icons.shopping_bag_outlined, 'color': const Color(0xFFF97316), 'label': 'Shopping', 'distance': '800m'},
-      {'icon': Icons.directions_subway_outlined, 'color': const Color(0xFF8B5CF6), 'label': 'Metro Station', 'distance': '1.8km'},
-      {'icon': Icons.directions_bus_outlined, 'color': const Color(0xFF06B6D4), 'label': 'Bus Stand', 'distance': '500m'},
-      {'icon': Icons.park_outlined, 'color': const Color(0xFF10B981), 'label': 'Parks', 'distance': '650m'},
-      {'icon': Icons.fitness_center_outlined, 'color': const Color(0xFFEC4899), 'label': 'Gym & Fitness', 'distance': '1.0km'},
-      {'icon': Icons.restaurant_outlined, 'color': const Color(0xFFEAB308), 'label': 'Restaurants', 'distance': '900m'},
-      {'icon': Icons.local_atm_outlined, 'color': const Color(0xFF14B8A6), 'label': 'Bank & ATM', 'distance': '350m'},
-      {'icon': Icons.flight_takeoff_outlined, 'color': const Color(0xFF6366F1), 'label': 'Airport', 'distance': '12.4km'},
+    // Render at most 25 real markers for performance — enough to give a
+    // real sense of density without overloading the map widget.
+    final realMarkers = (explore?.markers ?? const [])
+        .where((m) => m.markerType != 'PROPERTY')
+        .take(25)
+        .toList();
+
+    final amenities = explore != null
+        ? [
+            if ((explore.amenityCounts['education'] ?? 0) > 0)
+              {
+                'icon': Icons.school_outlined,
+                'color': const Color(0xFF3B82F6),
+                'label': 'Schools & Colleges',
+                'distance': '${explore.amenityCounts['education']} nearby',
+              },
+            if ((explore.amenityCounts['healthcare'] ?? 0) > 0)
+              {
+                'icon': Icons.local_hospital_outlined,
+                'color': const Color(0xFFEF4444),
+                'label': 'Hospitals & Clinics',
+                'distance': '${explore.amenityCounts['healthcare']} nearby',
+              },
+            if ((explore.amenityCounts['food'] ?? 0) > 0)
+              {
+                'icon': Icons.restaurant_outlined,
+                'color': const Color(0xFFEAB308),
+                'label': 'Restaurants & Cafes',
+                'distance': '${explore.amenityCounts['food']} nearby',
+              },
+          ]
+        : const [
+      {'icon': Icons.school_outlined, 'color': Color(0xFF3B82F6), 'label': 'Schools', 'distance': ''},
+      {'icon': Icons.local_hospital_outlined, 'color': Color(0xFFEF4444), 'label': 'Hospitals', 'distance': ''},
+      {'icon': Icons.restaurant_outlined, 'color': Color(0xFFEAB308), 'label': 'Restaurants', 'distance': ''},
     ];
 
     return Padding(
@@ -905,7 +1199,43 @@ class _HomeScreenState extends State<HomeScreen> {
                         userAgentPackageName: 'com.example.diginiwas',
                       ),
                       MarkerLayer(
-                        markers: [
+                        markers: explore != null
+                            ? [
+                                // The property itself, at the map center.
+                                Marker(
+                                  point: centerLocation,
+                                  width: 34.w,
+                                  height: 34.w,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF007A5E),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2.w),
+                                    ),
+                                    child: Icon(Icons.home_rounded, color: Colors.white, size: 16.sp),
+                                  ),
+                                ),
+                                ...realMarkers.map(
+                                  (m) => Marker(
+                                    point: LatLng(m.latitude, m.longitude),
+                                    width: 24.w,
+                                    height: 24.w,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: _amenityColor(m.markerType), width: 1.6.w),
+                                      ),
+                                      child: Icon(
+                                        _amenityIcon(m.markerType),
+                                        color: _amenityColor(m.markerType),
+                                        size: 12.sp,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ]
+                            : [
                           Marker(
                             point: const LatLng(30.3850, 76.7680),
                             width: 70.w,
@@ -975,7 +1305,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  '24 properties nearby',
+                                  explore != null
+                                      ? '${explore.markerCount} places nearby'
+                                      : (_exploreLoading ? 'Loading nearby places…' : 'Nearby places'),
                                   style: GoogleFonts.poppins(
                                     fontSize: 13.5.sp,
                                     fontWeight: FontWeight.w700,
@@ -984,7 +1316,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 SizedBox(height: 1.h),
                                 Text(
-                                  'in Ambala Cantt & Model Town',
+                                  explore != null && explore.areaLabel.isNotEmpty
+                                      ? 'in ${explore.areaLabel}'
+                                      : 'Schools, hospitals, food & more',
                                   style: GoogleFonts.poppins(
                                     fontSize: 10.5.sp,
                                     fontWeight: FontWeight.w400,
@@ -1099,6 +1433,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Color _amenityColor(String? markerType) {
+    switch (markerType) {
+      case 'EDUCATION':
+        return const Color(0xFF3B82F6);
+      case 'HEALTHCARE':
+        return const Color(0xFFEF4444);
+      case 'FOOD':
+        return const Color(0xFFEAB308);
+      default:
+        return const Color(0xFF64748B);
+    }
+  }
+
+  IconData _amenityIcon(String? markerType) {
+    switch (markerType) {
+      case 'EDUCATION':
+        return Icons.school_outlined;
+      case 'HEALTHCARE':
+        return Icons.local_hospital_outlined;
+      case 'FOOD':
+        return Icons.restaurant_outlined;
+      default:
+        return Icons.place_outlined;
+    }
+  }
+
   Widget _mapPriceBadge(String label) {
     return Center(
       child: Container(
@@ -1130,26 +1490,21 @@ class _HomeScreenState extends State<HomeScreen> {
   // NEW LISTINGS (Width: 200.w | Height: 199.5.h)
   // ---------------------------------------------------------------------
   Widget _buildNewListings() {
-    final listings = [
-      {
-        'title': 'Urban Nest',
-        'time': 'Just Added',
-        'isCustomCard': true,
-        'image': '',
-      },
-      {
-        'title': 'The Heights',
-        'time': '2 hours ago',
-        'isCustomCard': false,
-        'image': 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80',
-      },
-      {
-        'title': 'Emerald Heights',
-        'time': '5 hours ago',
-        'isCustomCard': false,
-        'image': 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80',
-      },
-    ];
+    // GET /v1/properties/new-listings
+    if (_newListingsLoading) {
+      return _buildHorizontalSectionShimmer(height: 199.5.h);
+    }
+    if (_newListings.isEmpty) {
+      return _buildEmptySectionMessage('No new listings near you yet.');
+    }
+    final listings = _newListings
+        .map((p) => {
+              'title': p.title ?? 'Property',
+              'time': p.listedAgo ?? '',
+              'isCustomCard': false,
+              'image': p.thumbnailUrl,
+            })
+        .toList();
 
     return SizedBox(
       height: 199.5.h,
@@ -1314,7 +1669,19 @@ class _HomeScreenState extends State<HomeScreen> {
   // POPULAR IN AMBALA (Width: 171.w | Height: 171.h)
   // ---------------------------------------------------------------------
   Widget _buildPopularAreas() {
-    final areas = [
+    // Real data from /v1/home/feed -> data.popularAreas. Falls back to
+    // placeholders if the API returned none (e.g. no listings yet).
+    final apiAreas = _homeFeed?.popularAreas ?? const [];
+    final areas = apiAreas.isNotEmpty
+        ? apiAreas
+            .map((a) => {
+                  'name': a.label.isNotEmpty ? a.label : 'Nearby',
+                  'count': '${a.propertyCount} Properties',
+                  'isLogo': false,
+                  'image': a.image ?? '',
+                })
+            .toList()
+        : [
       {
         'name': 'Sector 7',
         'count': '120+ Properties',
@@ -1462,106 +1829,126 @@ class _HomeScreenState extends State<HomeScreen> {
   // VERIFIED AGENT
   // ---------------------------------------------------------------------
   Widget _buildVerifiedAgent() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+    // GET /v1/agents/nearby
+    if (_agentsLoading) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        child: ShimmerWidget.box(borderRadius: 20, height: 82.h),
+      );
+    }
+    if (_nearbyAgents.isEmpty) {
+      return _buildEmptySectionMessage('No verified agents found near you yet.');
+    }
+    return SizedBox(
+      height: 100.h,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        physics: const BouncingScrollPhysics(),
+        itemCount: _nearbyAgents.length,
+        separatorBuilder: (_, __) => SizedBox(width: 12.w),
+        itemBuilder: (context, index) {
+          final agent = _nearbyAgents[index];
+          return Container(
+            width: 300.w,
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(28.r),
-              child: Container(
-                width: 52.w,
-                height: 52.w,
-                color: const Color(0xFFF1F5F9),
-                child: Image.network(
-                  'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=200&auto=format&fit=crop&q=80',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(
-                    Icons.person,
-                    color: const Color(0xFF0F2544),
-                    size: 26.sp,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 26.r,
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  child: Icon(Icons.person, color: const Color(0xFF0F2544), size: 26.sp),
+                ),
+                SizedBox(width: 14.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        agent.name ?? 'Agent',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14.5.sp,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Wrap(
+                        spacing: 6.w,
+                        runSpacing: 4.h,
+                        children: [
+                          if (agent.isVerified == true)
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F7F2),
+                                borderRadius: BorderRadius.circular(16.r),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.verified_outlined, size: 11.sp, color: const Color(0xFF007A5E)),
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    agent.roleLabel,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF007A5E),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (agent.displayLocation.isNotEmpty)
+                            Text(
+                              agent.displayLocation,
+                              style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B)),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ),
-            SizedBox(width: 14.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Arjun Khanna',
+                SizedBox(width: 8.w),
+                OutlinedButton(
+                  onPressed: () => _showAgentProfileBottomSheet(context, agent),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF007A5E),
+                    side: const BorderSide(color: Color(0xFF007A5E), width: 1.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.r),
+                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                  ),
+                  child: Text(
+                    'Profile',
                     style: GoogleFonts.poppins(
-                      fontSize: 14.5.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A),
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF007A5E),
                     ),
                   ),
-                  SizedBox(height: 4.h),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F7F2),
-                      borderRadius: BorderRadius.circular(16.r),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.verified_outlined,
-                          size: 11.sp,
-                          color: const Color(0xFF007A5E),
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          'Verified Partner',
-                          style: GoogleFonts.poppins(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF007A5E),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            OutlinedButton(
-              onPressed: () => _showAgentProfileBottomSheet(context),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF007A5E),
-                side: const BorderSide(color: Color(0xFF007A5E), width: 1.4),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14.r),
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 8.h),
-              ),
-              child: Text(
-                'Profile',
-                style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF007A5E),
-                ),
-              ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -1569,7 +1956,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------------------------------------------------------------------
   // AGENT PROFILE MODAL BOTTOM SHEET
   // ---------------------------------------------------------------------
-  void _showAgentProfileBottomSheet(BuildContext context) {
+  void _showAgentProfileBottomSheet(BuildContext context, NearbyAgent agent) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1654,7 +2041,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       SizedBox(height: 12.h),
                       Text(
-                        'Arjun khanna',
+                        agent.name ?? 'Agent',
                         style: GoogleFonts.poppins(
                           fontSize: 18.sp,
                           fontWeight: FontWeight.w700,
@@ -1663,7 +2050,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       SizedBox(height: 3.h),
                       Text(
-                        'Senior Property Consultant • DigiNiwas Prime Partner',
+                        [
+                          agent.roleLabel,
+                          if (agent.displayLocation.isNotEmpty) agent.displayLocation,
+                        ].join(' • '),
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 11.5.sp,
@@ -1672,29 +2062,30 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       SizedBox(height: 10.h),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE8F7F2),
-                          borderRadius: BorderRadius.circular(20.r),
-                          border: Border.all(color: const Color(0xFFBCE7DA), width: 0.8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.verified_user_outlined, size: 13.sp, color: const Color(0xFF007A5E)),
-                            SizedBox(width: 5.w),
-                            Text(
-                              'DigiNiwas Verified Partner',
-                              style: GoogleFonts.poppins(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF007A5E),
+                      if (agent.isVerified == true)
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F7F2),
+                            borderRadius: BorderRadius.circular(20.r),
+                            border: Border.all(color: const Color(0xFFBCE7DA), width: 0.8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.verified_user_outlined, size: 13.sp, color: const Color(0xFF007A5E)),
+                              SizedBox(width: 5.w),
+                              Text(
+                                'DigiNiwas Verified Partner',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF007A5E),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
                       SizedBox(height: 14.h),
                       Wrap(
                         spacing: 8.w,
@@ -1721,7 +2112,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Active Listings by Arjun khanna',
+                            'Active Listings by ${agent.name ?? "this partner"}',
                             style: GoogleFonts.poppins(
                               fontSize: 13.5.sp,
                               fontWeight: FontWeight.w700,
