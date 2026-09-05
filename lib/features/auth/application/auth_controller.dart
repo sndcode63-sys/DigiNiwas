@@ -146,6 +146,11 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
+  /// Public entry point the OTP screen calls to (re)try capturing location
+  /// on demand — e.g. right after the user comes back from the location
+  /// settings screen. Same best-effort semantics as [_captureLocation].
+  Future<LocationResult?> captureLocation() => _captureLocation();
+
   /// Opens the system location-permission prompt and fetches a fix.
   /// Never throws — on failure it records a soft `locationError` on the
   /// state and returns null, so callers can keep going without location.
