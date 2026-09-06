@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:diginiwas/features/auth/presentation/buyer_section/property_details_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/save_properties_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_screen.dart';
@@ -9,6 +11,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/controller/buyer_home_controller.dart';
+import '../../../../core/storage/secure_storage_service.dart';
+import '../../../../core/storage/storage_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/utils/shimmer.dart';
@@ -93,7 +97,7 @@ class HomeScreen extends StatelessWidget {
       case 2:
         return const NiwasAiScreen();
       case 3:
-        return const SavedPropertiesScreen();
+        return  SavedPropertiesScreen();
       case 4:
         return const ProfileScreen();
       default:
@@ -104,6 +108,7 @@ class HomeScreen extends StatelessWidget {
   Widget _buildContent(BuildContext context) {
     return RefreshIndicator(
       onRefresh: controller.refreshAll,
+
       color: const Color(0xFF007A5E),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -323,38 +328,48 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
           SizedBox(height: 18.h),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.r),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search_rounded, color: const Color(0xFF8C9BAE), size: 20.sp),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: Text(
-                    'Search locality, property or budget',
-                    style: GoogleFonts.poppins(
-                      color: const Color(0xFF9AA8B8),
-                      fontSize: 12.5.sp,
-                      fontWeight: FontWeight.w400,
+          GestureDetector(
+            onTap: () {
+              // Click karte hi Search Screen open ho jayegi
+              Get.to(() => ExproleName());
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded, color: const Color(0xFF8C9BAE), size: 20.sp),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      'Search locality, property or budget',
+                      style: GoogleFonts.poppins(
+                        color: const Color(0xFF9AA8B8),
+                        fontSize: 12.5.sp,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
                   ),
-                ),
-                Icon(Icons.auto_awesome, color: const Color(0xFF007A5E), size: 18.sp),
-                SizedBox(width: 10.w),
-                Container(
-                  height: 16.h,
-                  width: 1.w,
-                  color: Colors.grey.shade300,
-                ),
-                SizedBox(width: 10.w),
-                Icon(Icons.mic_none_rounded, color: const Color(0xFF8C9BAE), size: 20.sp),
-              ],
+                  Icon(Icons.auto_awesome, color: const Color(0xFF007A5E), size: 18.sp),
+                  SizedBox(width: 10.w),
+                  Container(height: 16.h, width: 1.w, color: Colors.grey.shade300),
+                  SizedBox(width: 10.w),
+                  Icon(Icons.mic_none_rounded, color: const Color(0xFF8C9BAE), size: 20.sp),
+                ],
+              ),
             ),
-          ),
+          )
+
         ],
       ),
     );
@@ -660,35 +675,61 @@ class HomeScreen extends StatelessWidget {
                       top: 10.h,
                       right: 10.w,
                       child: GestureDetector(
-                        onTap: () {
-                          Get.snackbar(
-                            'Favorite',
-                            'Property favorite status updated!',
-                            snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: const Color(0xFF0F2544),
-                            colorText: Colors.white,
-                            duration: const Duration(seconds: 1),
-                          );
+                        onTap: () async {
+                          try {
+                            String? buyerId = await StorageService.instance.buyerId;
+                            if (buyerId == null || buyerId.isEmpty) {
+                              buyerId = await StorageService.instance.userId;
+                            }
+                            if (buyerId == null || buyerId.isEmpty) {
+                              final userJson = await SecureStorageService.instance.getUserData();
+                              if (userJson != null && userJson.isNotEmpty) {
+                                try {
+                                  final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+                                  buyerId = userMap['id']?.toString() ??
+                                      userMap['_id']?.toString() ??
+                                      userMap['buyerId']?.toString();
+                                } catch (_) {}
+                              }
+                            }
+
+                            final itemJson = jsonAt(index);
+                            final propertyId = itemJson['_id']?.toString() ?? itemJson['propertyId']?.toString();
+
+                            if (buyerId != null && buyerId.isNotEmpty && propertyId != null) {
+                              await controller.toggleSaveProperty(buyerId, propertyId);
+                            }
+                          } catch (e) {
+                            print('DEBUG_HEART EXCEPTION: $e');
+                          }
                         },
-                        child: Container(
-                          padding: EdgeInsets.all(7.r),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.favorite_border_rounded,
-                            size: 16.sp,
-                            color: const Color(0xFFE53935),
-                          ),
-                        ),
+                        child: Obx(() {
+                          final itemJson = jsonAt(index);
+                          final propertyId = itemJson['_id']?.toString() ?? itemJson['propertyId']?.toString();
+
+                          // Check karo kya yeh property saved list me hai
+                          final isSaved = propertyId != null && controller.savedPropertyIds.contains(propertyId);
+
+                          return Container(
+                            padding: EdgeInsets.all(7.r),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              size: 16.sp,
+                              color: const Color(0xFFE53935), // Red color
+                            ),
+                          );
+                        }),
                       ),
                     ),
                   ],

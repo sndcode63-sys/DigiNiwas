@@ -14,6 +14,7 @@ import '../../../../core/network/api_service.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../features/auth/data/home_repository.dart';
+import '../storage/storage_service.dart';
 
 /// GetX controller for the Buyer Home screen and saved properties workflow.
 class BuyerHomeController extends GetxController {
@@ -46,6 +47,8 @@ class BuyerHomeController extends GetxController {
   // Saved properties reactive state
   final RxList<dynamic> savedPropertiesList = <dynamic>[].obs;
   final RxBool savedPropertiesLoading = false.obs;
+  // Saved property IDs ka track rakhne ke liye set
+  final RxSet<String> savedPropertyIds = <String>{}.obs;
 
   // Independent loading flags — each secondary section loads on its own.
   final RxBool dashboardLoading = true.obs;
@@ -55,6 +58,10 @@ class BuyerHomeController extends GetxController {
   final RxBool newListingsLoading = true.obs;
   final RxBool agentsLoading = true.obs;
   final RxBool exploreLoading = true.obs;
+
+  // Search reactive state
+  final RxList<dynamic> searchResultsList = <dynamic>[].obs;
+  final RxBool searchLoading = false.obs;
 
   /// Buyer's first name, shown in the header greeting/avatar initials.
   final RxString buyerName = 'Guest'.obs;
@@ -72,9 +79,54 @@ class BuyerHomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadBuyerName();
-    loadHomeFeed();
-    loadAllApiSections();
+    _loadBuyerNameAndSavedProperties();
+
+    // Non-blocking background call for instantaneous smooth UI rendering
+    Future.microtask(() {
+      loadHomeFeed();
+      loadAllApiSections();
+    });
+  }
+
+  /// GET /properties/search/list?keyword=value
+  /// GET /properties/search/list?keyword=value
+  Future<void> searchProperties(String keyword) async {
+    // Agar search box khali ya clear ho gaya hai, toh turant list clear karo
+    if (keyword.trim().isEmpty) {
+      searchResultsList.clear();
+      searchLoading.value = false;
+      return;
+    }
+
+    searchLoading.value = true;
+    try {
+      final response = await _apiService.get(
+        ApiConstants.searchProperties,
+        queryParameters: {'keyword': keyword},
+      );
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        searchResultsList.value = data['data'] ?? data['properties'] ?? [];
+      } else {
+        searchResultsList.clear();
+      }
+    } catch (_) {
+      searchResultsList.clear();
+    } finally {
+      searchLoading.value = false;
+    }
+  }
+  Future<void> _loadBuyerNameAndSavedProperties() async {
+    await _loadBuyerName();
+
+    // Buyer ID fetch karke saved properties load karo
+    String? buyerId = await StorageService.instance.buyerId;
+    if (buyerId == null || buyerId.isEmpty) {
+      buyerId = await StorageService.instance.userId;
+    }
+    if (buyerId != null && buyerId.isNotEmpty) {
+      await fetchSavedProperties(buyerId);
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -99,7 +151,9 @@ class BuyerHomeController extends GetxController {
 
   /// 1. GET /api/v1/home/feed — the primary/blocking call for this screen.
   Future<void> loadHomeFeed() async {
-    isLoading.value = true;
+    if (homeFeed.value == null) {
+      isLoading.value = true;
+    }
     error.value = null;
     try {
       final feed = await _homeRepository.getHomeFeed();
@@ -220,24 +274,94 @@ class BuyerHomeController extends GetxController {
   // SAVED PROPERTIES & WISHLIST API INTEGRATIONS
   // ---------------------------------------------------------------------
 
-  /// GET /api/saved-properties/buyer/:buyerId[cite: 1]
+  /// GET /api/saved-properties/buyer/:buyerId
   Future<void> fetchSavedProperties(String buyerId) async {
     savedPropertiesLoading.value = true;
     try {
       final response = await _apiService.get('${ApiConstants.getBuyerSavedProperties}/$buyerId');
       final data = response.data;
       if (data is Map && data['success'] == true) {
-        savedPropertiesList.value = data['data'] ?? [];
+        final list = data['data'] ?? [];
+        savedPropertiesList.value = list;
+
+        // Saved property IDs ko set me extract kar lo UI check ke liye
+        savedPropertyIds.clear();
+        for (var item in list) {
+          final propId = item['property']?['_id']?.toString() ?? item['propertyId']?.toString() ?? item['_id']?.toString();
+          if (propId != null) {
+            savedPropertyIds.add(propId);
+          }
+        }
       }
     } catch (_) {
       savedPropertiesList.clear();
+      savedPropertyIds.clear();
     } finally {
       savedPropertiesLoading.value = false;
     }
   }
 
-  /// POST /api/saved-properties[cite: 1]
+  /// Toggle save / remove property with instant optimistic UI update
   Future<void> toggleSaveProperty(String buyerId, String propertyId) async {
+    final isAlreadySaved = savedPropertyIds.contains(propertyId);
+
+    // 1. OPTIMISTIC UI UPDATE (Makhan jaisa fast)
+    if (isAlreadySaved) {
+      savedPropertyIds.remove(propertyId);
+      savedPropertiesList.removeWhere((item) {
+        final pData = (item is Map && item['propertySnapshot'] != null)
+            ? item['propertySnapshot']
+            : (item is Map && item['property'] != null ? item['property'] : item);
+        final pId = pData['propertyId']?.toString() ?? pData['_id']?.toString() ?? item['propertyId']?.toString() ?? '';
+        return pId == propertyId;
+      });
+    } else {
+      savedPropertyIds.add(propertyId);
+    }
+
+    // 2. Background API Call
+    if (isAlreadySaved) {
+      try {
+        final response = await _apiService.delete(
+          '${ApiConstants.removeSavedProperty}/$buyerId/$propertyId',
+        );
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          Get.snackbar(
+            'Removed',
+            'Property removed from saved items.',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFFE53935),
+            colorText: Colors.white,
+            duration: const Duration(seconds: 1),
+          );
+        }
+      } catch (_) {
+        await fetchSavedProperties(buyerId);
+      }
+    } else {
+      try {
+        final response = await _apiService.post(
+          ApiConstants.saveProperty,
+          data: {'buyerId': buyerId, 'propertyId': propertyId},
+        );
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          Get.snackbar(
+            'Success',
+            'Property saved successfully!',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: const Color(0xFF007A5E),
+            colorText: Colors.white,
+            duration: const Duration(seconds: 1),
+          );
+        }
+        await fetchSavedProperties(buyerId);
+      } catch (_) {
+        await fetchSavedProperties(buyerId);
+      }
+    }
+  }
+
+  Future<void> savePropertyCall(String buyerId, String propertyId) async {
     try {
       final response = await _apiService.post(
         ApiConstants.saveProperty,
@@ -256,7 +380,7 @@ class BuyerHomeController extends GetxController {
           colorText: Colors.white,
           duration: const Duration(seconds: 1),
         );
-        fetchSavedProperties(buyerId);
+        await fetchSavedProperties(buyerId);
       }
     } catch (_) {
       Get.snackbar(
@@ -267,10 +391,40 @@ class BuyerHomeController extends GetxController {
     }
   }
 
+  Future<void> removeSavedPropertyCall(String buyerId, String propertyId) async {
+    try {
+      final response = await _apiService.delete(
+        '${ApiConstants.removeSavedProperty}/$buyerId/$propertyId',
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Get.snackbar(
+          'Removed',
+          'Property removed from saved items.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFFE53935),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 1),
+        );
+        await fetchSavedProperties(buyerId);
+      }
+    } catch (_) {
+      Get.snackbar(
+        'Error',
+        'Could not remove saved property.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
   /// Pull-to-refresh: reloads the primary feed, then every secondary section.
   Future<void> refreshAll() async {
     await loadHomeFeed();
     loadAllApiSections();
+    String? buyerId = await StorageService.instance.buyerId;
+    if (buyerId != null && buyerId.isNotEmpty) {
+      await fetchSavedProperties(buyerId);
+    }
   }
 
   // ---------------------------------------------------------------------
