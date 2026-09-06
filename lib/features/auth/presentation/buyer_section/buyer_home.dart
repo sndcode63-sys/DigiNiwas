@@ -20,6 +20,37 @@ import '../../../../core/widgets/app_image.dart';
 import 'exprole_name.dart';
 import 'niwas_ai_section.dart';
 
+// ---------------------------------------------------------------------
+// SHARED AMENITY MARKER STYLING
+// Top-level so both HomeScreen's inline map and the full-screen
+// ExploreMapViewScreen render markers identically.
+// ---------------------------------------------------------------------
+Color _amenityColor(String? markerType) {
+  switch (markerType) {
+    case 'EDUCATION':
+      return const Color(0xFF3B82F6);
+    case 'HEALTHCARE':
+      return const Color(0xFFEF4444);
+    case 'FOOD':
+      return const Color(0xFFEAB308);
+    default:
+      return const Color(0xFF64748B);
+  }
+}
+
+IconData _amenityIcon(String? markerType) {
+  switch (markerType) {
+    case 'EDUCATION':
+      return Icons.school_outlined;
+    case 'HEALTHCARE':
+      return Icons.local_hospital_outlined;
+    case 'FOOD':
+      return Icons.restaurant_outlined;
+    default:
+      return Icons.place_outlined;
+  }
+}
+
 class HomeScreen extends StatelessWidget {
   HomeScreen({super.key});
 
@@ -1138,32 +1169,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Color _amenityColor(String? markerType) {
-    switch (markerType) {
-      case 'EDUCATION':
-        return const Color(0xFF3B82F6);
-      case 'HEALTHCARE':
-        return const Color(0xFFEF4444);
-      case 'FOOD':
-        return const Color(0xFFEAB308);
-      default:
-        return const Color(0xFF64748B);
-    }
-  }
-
-  IconData _amenityIcon(String? markerType) {
-    switch (markerType) {
-      case 'EDUCATION':
-        return Icons.school_outlined;
-      case 'HEALTHCARE':
-        return Icons.local_hospital_outlined;
-      case 'FOOD':
-        return Icons.restaurant_outlined;
-      default:
-        return Icons.place_outlined;
-    }
-  }
-
   Widget _buildNewListings() {
     if (controller.newListingsLoading.value) {
       return _sectionLoader(height: 240);
@@ -1359,12 +1364,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
   // ---------------------------------------------------------------------
-  // VERIFIED AGENTS — card + bottom sheet with the actual agent's data
-  // ---------------------------------------------------------------------
-// ---------------------------------------------------------------------
-  // VERIFIED AGENTS SECTION
-  // ---------------------------------------------------------------------
-// ---------------------------------------------------------------------
   // VERIFIED AGENTS SECTION (Matching your UI Design)
   // ---------------------------------------------------------------------
   Widget _buildVerifiedAgent() {
@@ -2148,164 +2147,386 @@ class HomeScreen extends StatelessWidget {
 }
 
 // =====================================================================
-// FULL-SCREEN EXPLORE MAP VIEW SCREEN
+// FULL-SCREEN EXPLORE MAP VIEW SCREEN — now fully dynamic, driven by
+// BuyerHomeController.exploreNearby (GET /api/v1/properties/explore-nearby)
+// instead of hardcoded demo pins.
 // =====================================================================
 class ExploreMapViewScreen extends StatelessWidget {
   const ExploreMapViewScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final centerLocation = const LatLng(30.3782, 76.7767);
+    // Same controller instance HomeScreen already put() — no new API call
+    // needed here, we just read what's already loaded (or re-fetch on
+    // radius change below).
+    final BuyerHomeController controller = Get.find<BuyerHomeController>();
 
     return Scaffold(
-      body: Stack(
-        children: [
-          FlutterMap(
-            options: MapOptions(
-              initialCenter: centerLocation,
-              initialZoom: 14.0,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.diginiwas',
+      body: Obx(() {
+        final explore = controller.exploreNearby.value;
+        final isInitialLoading = controller.exploreLoading.value && explore == null;
+
+        if (isInitialLoading) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF007A5E)),
+          );
+        }
+
+        if (explore == null) {
+          return _buildEmptyState();
+        }
+
+        final mapDetails = explore.map;
+        final property = explore.property;
+
+        final centerLocation = mapDetails?.center != null
+            ? LatLng(mapDetails!.center!.latitude ?? 22.7533, mapDetails.center!.longitude ?? 75.8937)
+            : const LatLng(22.7533, 75.8937);
+
+        final List<Marker> mapMarkers = [];
+        if (mapDetails?.markers != null) {
+          for (var m in mapDetails!.markers!) {
+            if (m.latitude == null || m.longitude == null) continue;
+            final isProperty = m.markerType == 'PROPERTY';
+            mapMarkers.add(
+              Marker(
+                point: LatLng(m.latitude!, m.longitude!),
+                width: isProperty ? 42.w : 32.w,
+                height: isProperty ? 42.w : 32.w,
+                child: GestureDetector(
+                  onTap: () => _showMarkerDetailSheet(context, m, isProperty),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isProperty ? const Color(0xFF007A5E) : Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isProperty ? Colors.white : _amenityColor(m.markerType),
+                        width: 2.w,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      isProperty ? Icons.home_rounded : _amenityIcon(m.markerType),
+                      color: isProperty ? Colors.white : _amenityColor(m.markerType),
+                      size: isProperty ? 20.sp : 15.sp,
+                    ),
+                  ),
+                ),
               ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: const LatLng(30.3850, 76.7680),
-                    width: 75.w,
-                    height: 32.h,
-                    child: _buildPin('₹78L'),
+            );
+          }
+        }
+
+        return Stack(
+          children: [
+            FlutterMap(
+              options: MapOptions(
+                initialCenter: centerLocation,
+                initialZoom: mapDetails?.zoom?.toDouble() ?? 14.0,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.diginiwas',
+                ),
+                MarkerLayer(markers: mapMarkers),
+              ],
+            ),
+
+            // Top bar: back button + real property title
+            Positioned(
+              top: 48.h,
+              left: 20.w,
+              right: 20.w,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Get.back(),
+                    child: Container(
+                      padding: EdgeInsets.all(10.r),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 8, offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: Icon(Icons.arrow_back, color: const Color(0xFF0F2544), size: 20.sp),
+                    ),
                   ),
-                  Marker(
-                    point: const LatLng(30.3720, 76.7900),
-                    width: 85.w,
-                    height: 32.h,
-                    child: _buildPin('₹1.2Cr'),
-                  ),
-                  Marker(
-                    point: const LatLng(30.3680, 76.7600),
-                    width: 75.w,
-                    height: 32.h,
-                    child: _buildGreenPin('₹65L'),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14.r),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.location_on, color: const Color(0xFF007A5E), size: 18.sp),
+                          SizedBox(width: 6.w),
+                          Expanded(
+                            child: Text(
+                              property?.title ?? 'Nearby Places',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF0F2544),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ],
-          ),
-          Positioned(
-            top: 48.h,
-            left: 20.w,
-            right: 20.w,
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => Get.back(),
-                  child: Container(
-                    padding: EdgeInsets.all(10.r),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.12),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+            ),
+
+            // Radius selector chips — re-calls the API at a new radius
+            Positioned(
+              top: 100.h,
+              left: 20.w,
+              right: 20.w,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [1000, 3000, 5000].map((r) {
+                    final isSelected = controller.exploreRadius.value == r;
+                    final label = r >= 1000 ? '${(r / 1000).toStringAsFixed(0)} km' : '$r m';
+                    return Padding(
+                      padding: EdgeInsets.only(right: 8.w),
+                      child: GestureDetector(
+                        onTap: () => controller.changeExploreRadius(r),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFF007A5E) : Colors.white,
+                            borderRadius: BorderRadius.circular(20.r),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                            ],
+                          ),
+                          child: Text(
+                            label,
+                            style: GoogleFonts.poppins(
+                              fontSize: 11.5.sp,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.white : const Color(0xFF0F2544),
+                            ),
+                          ),
                         ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+
+            // Small "updating" pill shown while re-fetching for a new radius
+            if (controller.exploreLoading.value)
+              Positioned(
+                top: 148.h,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 14.w,
+                          height: 14.w,
+                          child: const CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF007A5E)),
+                        ),
+                        SizedBox(width: 8.w),
+                        Text('Updating nearby places...', style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B))),
                       ],
                     ),
-                    child: Icon(Icons.arrow_back, color: const Color(0xFF0F2544), size: 20.sp),
                   ),
                 ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
+              ),
+
+            // Bottom card: marker count + legend + directions
+            Positioned(
+              left: 16.w,
+              right: 16.w,
+              bottom: 24.h,
+              child: Container(
+                padding: EdgeInsets.all(14.w),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18.r),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.location_on, color: const Color(0xFF007A5E), size: 18.sp),
-                        SizedBox(width: 6.w),
                         Text(
-                          'Ambala Cantt Properties',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF0F2544),
+                          '${mapMarkers.length} places found',
+                          style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            final url = property?.mapUrl;
+                            if (url != null && url.isNotEmpty) {
+                              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                            }
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                            decoration: BoxDecoration(color: const Color(0xFF0F2544), borderRadius: BorderRadius.circular(8.r)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.directions_rounded, size: 14.sp, color: Colors.white),
+                                SizedBox(width: 4.w),
+                                Text('Directions', style: GoogleFonts.poppins(fontSize: 10.5.sp, fontWeight: FontWeight.w600, color: Colors.white)),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
+                    SizedBox(height: 10.h),
+                    Wrap(
+                      spacing: 10.w,
+                      runSpacing: 6.h,
+                      children: [
+                        _legendDot(const Color(0xFF007A5E), 'Property'),
+                        _legendDot(const Color(0xFF3B82F6), 'Education'),
+                        _legendDot(const Color(0xFFEF4444), 'Healthcare'),
+                        _legendDot(const Color(0xFFEAB308), 'Food'),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      }),
     );
   }
 
-  Widget _buildPin(String label) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F2544),
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          label,
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w700,
-          ),
+  Widget _legendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 8.w, height: 8.w, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        SizedBox(width: 4.w),
+        Text(label, style: GoogleFonts.poppins(fontSize: 9.5.sp, color: const Color(0xFF64748B))),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(24.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.map_outlined, size: 44.sp, color: const Color(0xFF94A3B8)),
+            SizedBox(height: 10.h),
+            Text(
+              "Nearby map data isn't available right now.",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 12.5.sp, color: const Color(0xFF64748B)),
+            ),
+            SizedBox(height: 14.h),
+            TextButton(
+              onPressed: () => Get.back(),
+              child: Text('Go Back', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E))),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildGreenPin(String label) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-      decoration: BoxDecoration(
-        color: const Color(0xFF007A5E),
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.home_work_rounded, color: Colors.white, size: 10.sp),
-          SizedBox(width: 3.w),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w700,
-            ),
+  /// Bottom sheet shown when a marker on the full-screen map is tapped —
+  /// shows the place name, distance (if available), and a "Get Directions"
+  /// button that opens Google Maps via the marker's directionsUrl/mapUrl.
+  void _showMarkerDetailSheet(BuildContext context, dynamic marker, bool isProperty) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.all(20.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isProperty ? Icons.home_rounded : _amenityIcon(marker.markerType),
+                    color: isProperty ? const Color(0xFF007A5E) : _amenityColor(marker.markerType),
+                    size: 22.sp,
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      marker.name ?? 'Location',
+                      style: GoogleFonts.poppins(fontSize: 14.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                    ),
+                  ),
+                ],
+              ),
+              if (marker.distanceKm != null) ...[
+                SizedBox(height: 8.h),
+                Text(
+                  '${marker.distanceKm is double ? (marker.distanceKm as double).toStringAsFixed(1) : marker.distanceKm} km away',
+                  style: GoogleFonts.poppins(fontSize: 11.5.sp, color: const Color(0xFF64748B)),
+                ),
+              ],
+              SizedBox(height: 16.h),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    final url = marker.directionsUrl ?? marker.mapUrl;
+                    if (url != null && url.toString().isNotEmpty) {
+                      Navigator.of(ctx).pop();
+                      launchUrl(Uri.parse(url.toString()), mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  icon: Icon(Icons.directions_rounded, size: 16.sp),
+                  label: Text('Get Directions', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF005B48),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -1,13 +1,15 @@
 // =====================================================================
-// DYNAMIC MULTI-PROPERTY COMPARE SCREEN (2, 3, 4+ PROPERTIES SUPPORT)
+// DYNAMIC MULTI-PROPERTY COMPARE SCREEN (SYNCHRONIZED SCROLLING)
 // =====================================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../../../core/widgets/app_image.dart';
 
 class ComparePropertiesScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> comparedProperties;
+  final List<dynamic> comparedProperties;
 
   const ComparePropertiesScreen({
     super.key,
@@ -15,12 +17,11 @@ class ComparePropertiesScreen extends StatefulWidget {
   });
 
   @override
-  State<ComparePropertiesScreen> createState() =>
-      _ComparePropertiesScreenState();
+  State<ComparePropertiesScreen> createState() => _ComparePropertiesScreenState();
 }
 
 class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
-  late List<Map<String, dynamic>> _properties;
+  late List<dynamic> _properties;
 
   @override
   void initState() {
@@ -34,13 +35,45 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
     });
   }
 
-  // Dynamic Insight generation based on selected properties
+  void _shareComparison() {
+    if (_properties.isEmpty) return;
+
+    final buffer = StringBuffer();
+    buffer.writeln('Property Comparison (${_properties.length})');
+    buffer.writeln('--------------------------------');
+
+    for (final item in _properties) {
+      final title = item['title'] ?? item['name'] ?? 'Property';
+      final locality = item['locality'] ?? item['address'] ?? '';
+      final price = item['price']?.toString() ?? '0';
+      final bhk = item['bedrooms'] ?? '2';
+      final area = item['area']?.toString() ?? '1,240 sq.ft';
+
+      buffer.writeln(title);
+      if (locality.toString().isNotEmpty) buffer.writeln('Locality: $locality');
+      buffer.writeln('Configuration: $bhk BHK');
+      buffer.writeln('Area: $area');
+      buffer.writeln('Price: ₹ $price');
+      buffer.writeln();
+    }
+
+    buffer.writeln(_generateAiInsight());
+
+    SharePlus.instance.share(
+      ShareParams(text: buffer.toString(), subject: 'Property Comparison'),
+    );
+  }
+
   String _generateAiInsight() {
     if (_properties.isEmpty) return '';
     if (_properties.length == 1) {
-      return '${_properties[0]['name']} is a great choice in ${_properties[0]['address']}.';
+      final title = _properties[0]['title'] ?? _properties[0]['name'] ?? 'Property';
+      final locality = _properties[0]['locality'] ?? _properties[0]['address'] ?? '';
+      return '$title is a great choice in $locality.';
     }
-    return '${_properties[0]['name']} fits budget better, while ${_properties[1]['name']} offers more configuration options across ${_properties.length} compared properties.';
+    final t1 = _properties[0]['title'] ?? _properties[0]['name'] ?? 'First property';
+    final t2 = _properties[1]['title'] ?? _properties[1]['name'] ?? 'Second property';
+    return '$t1 fits budget better, while $t2 offers high connectivity across ${_properties.length} compared properties.';
   }
 
   @override
@@ -56,9 +89,8 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTopPropertyCards(),
-            SizedBox(height: 20.h),
-            _buildComparisonTable(),
+            // Unified Synchronized Scroll View for Cards + Table
+            _buildSynchronizedComparisonContent(),
             SizedBox(height: 20.h),
             _buildAiInsightCard(),
             SizedBox(height: 20.h),
@@ -101,7 +133,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
       actions: [
         IconButton(
           icon: Icon(Icons.share_outlined, color: const Color(0xFF0F172A), size: 20.sp),
-          onPressed: () {},
+          onPressed: _shareComparison,
         ),
         SizedBox(width: 4.w),
       ],
@@ -109,42 +141,61 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
   }
 
   // ---------------------------------------------------------------------
-  // TOP CARDS: AUTO-FIT (2 ITEMS) YA SCROLLABLE (3+ ITEMS)
+  // UNIFIED HORIZONTAL SCROLL FOR CARDS AND TABLE TOGETHER
   // ---------------------------------------------------------------------
-  Widget _buildTopPropertyCards() {
-    final bool isMultiScroll = _properties.length > 2;
+  Widget _buildSynchronizedComparisonContent() {
+    // NOTE: 110.w matches the fixed label-column width used inside the
+    // table rows (see _buildDynamicTableRow). Keeping both in sync here
+    // is what actually keeps cards and table columns aligned while
+    // scrolling — they're already in ONE SingleChildScrollView, so the
+    // real bug was misalignment, not "not scrolling together".
+    const double labelColumnWidth = 110;
+    final double totalWidth = labelColumnWidth.w + (_properties.length * 177.w);
 
-    if (isMultiScroll) {
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: List.generate(_properties.length, (index) {
-            return Container(
-              width: 165.w,
-              margin: EdgeInsets.only(right: 12.w),
-              child: _buildPropertyCardItem(_properties[index], index),
-            );
-          }),
-        ),
-      );
-    }
-
-    return Row(
-      children: List.generate(_properties.length, (index) {
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.only(
-              right: index == 0 && _properties.length > 1 ? 12.w : 0,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: SizedBox(
+        width: totalWidth > 1.sw ? totalWidth : 1.sw - 32.w,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Property Cards Row — offset by the same label-column
+            // width as the table so each card lines up with its column.
+            Row(
+              children: [
+                SizedBox(width: labelColumnWidth.w),
+                ...List.generate(_properties.length, (index) {
+                  return Container(
+                    width: 165.w,
+                    margin: EdgeInsets.only(right: index == _properties.length - 1 ? 0 : 12.w),
+                    child: _buildPropertyCardItem(_properties[index], index),
+                  );
+                }),
+              ],
             ),
-            child: _buildPropertyCardItem(_properties[index], index),
-          ),
-        );
-      }),
+            SizedBox(height: 16.h),
+            // Comparison Table matching the exact width layout
+            _buildComparisonTableBody(),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildPropertyCardItem(Map<String, dynamic> item, int index) {
+  Widget _buildPropertyCardItem(dynamic item, int index) {
+    final title = item['title'] ?? item['name'] ?? 'Property';
+    final locality = item['locality'] ?? item['address'] ?? '';
+    final price = item['price']?.toString() ?? '0';
+
+    String? imageUrl;
+    final images = item['images'];
+    if (images is List && images.isNotEmpty) {
+      imageUrl = images.first is Map ? images.first['url'] : images.first?.toString();
+    } else if (item['image'] is String) {
+      imageUrl = item['image'];
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -165,16 +216,12 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12.r),
-                child: Image.network(
-                  item['image'] ?? '',
+                child: ImageCase(
+                  url: imageUrl,
                   height: 105.h,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 105.h,
-                    color: const Color(0xFFF1F5F9),
-                    child: const Icon(Icons.home_work_rounded, color: Color(0xFF007A5E)),
-                  ),
+                  fallbackIcon: Icons.home_work_rounded,
                 ),
               ),
               Positioned(
@@ -222,7 +269,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
           ),
           SizedBox(height: 8.h),
           Text(
-            item['name'] ?? '',
+            title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
@@ -238,7 +285,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
               SizedBox(width: 2.w),
               Expanded(
                 child: Text(
-                  item['address'] ?? '',
+                  locality,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
@@ -251,7 +298,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
           ),
           SizedBox(height: 4.h),
           Text(
-            item['price'] ?? '',
+            '₹ $price',
             style: GoogleFonts.poppins(
               fontSize: 14.sp,
               fontWeight: FontWeight.w800,
@@ -263,13 +310,8 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // DYNAMIC COMPARISON TABLE (N PROPERTIES)
-  // ---------------------------------------------------------------------
-  Widget _buildComparisonTable() {
-    final bool isMulti = _properties.length > 2;
-
-    Widget tableContent = Container(
+  Widget _buildComparisonTableBody() {
+    return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.r),
@@ -280,31 +322,28 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
           _buildDynamicTableRow(
             icon: Icons.grid_view_rounded,
             label: 'Configuration',
-            values: _properties.map((e) => (e['bhk'] ?? '2 BHK').toString()).toList(),
-            isFirst: true,
+            values: _properties.map((e) => '${e['bedrooms'] ?? '2'} BHK').toList(),
           ),
           _buildDynamicTableRow(
             icon: Icons.crop_square_rounded,
             label: 'Carpet Area',
-            values: _properties.map((e) => (e['sqft'] ?? '1,240 sq.ft').toString()).toList(),
+            values: _properties.map((e) => e['area']?.toString() ?? '1,240 sq.ft').toList(),
           ),
           _buildDynamicTableRow(
             icon: Icons.calendar_today_outlined,
             label: 'Possession',
-            values: _properties
-                .map((e) => (e['possession'] ?? e['status'] ?? 'Ready to Move').toString())
-                .toList(),
+            values: _properties.map((e) => e['furnishing']?.toString() ?? 'Ready to Move').toList(),
           ),
           _buildDynamicTableRow(
             icon: Icons.sell_outlined,
             label: 'Price',
-            values: _properties.map((e) => (e['price'] ?? '₹85 L').toString()).toList(),
+            values: _properties.map((e) => '₹ ${e['price'] ?? '85 L'}').toList(),
             isHighlighted: true,
           ),
           _buildDynamicTableRow(
             icon: Icons.location_on_outlined,
             label: 'Locality',
-            values: _properties.map((e) => (e['address'] ?? 'Bopal').toString()).toList(),
+            values: _properties.map((e) => e['locality']?.toString() ?? 'Bopal').toList(),
           ),
           _buildDynamicTableRow(
             icon: Icons.verified_user_outlined,
@@ -316,19 +355,6 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
         ],
       ),
     );
-
-    if (isMulti) {
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: SizedBox(
-          width: 120.w + (_properties.length * 115.w),
-          child: tableContent,
-        ),
-      );
-    }
-
-    return tableContent;
   }
 
   Widget _buildDynamicTableRow({
@@ -337,7 +363,6 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
     required List<String> values,
     bool isHighlighted = false,
     bool isVerifiedTag = false,
-    bool isFirst = false,
     bool isLast = false,
   }) {
     return Container(
@@ -349,7 +374,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
       child: IntrinsicHeight(
         child: Row(
           children: [
-            // Fixed Column Header
+            // Fixed Property Attributes Header Column
             SizedBox(
               width: 110.w,
               child: Padding(
@@ -372,10 +397,10 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
                 ),
               ),
             ),
-
-            // Dynamic Value Columns for all properties
+            // Values mapped to individual property columns matching card widths
             ...List.generate(values.length, (i) {
-              return Expanded(
+              return SizedBox(
+                width: 165.w,
                 child: Row(
                   children: [
                     Container(width: 1, color: const Color(0xFFE2E8F0)),
@@ -426,9 +451,6 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // AI INSIGHT
-  // ---------------------------------------------------------------------
   Widget _buildAiInsightCard() {
     return Container(
       padding: EdgeInsets.all(14.w),
@@ -452,7 +474,7 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    'RH',
+                    'AI',
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: 11.sp,
@@ -505,9 +527,6 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // BOTTOM HELP SECTION
-  // ---------------------------------------------------------------------
   Widget _buildNeedHelpCard() {
     return Container(
       width: double.infinity,
@@ -559,39 +578,18 @@ class _ComparePropertiesScreenState extends State<ComparePropertiesScreen> {
                 elevation: 0,
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min, // ya MainAxisSize.max
-                mainAxisAlignment: MainAxisAlignment.center,                children: [
-                Text(
-                  'Connect with DigiNiwas Partner',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11.5.sp,
-                    fontWeight: FontWeight.w600,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Connect with DigiNiwas Partner',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.5.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                SizedBox(width: 4.w),
-                Icon(Icons.arrow_forward_rounded, size: 14.sp),
-              ],
-              ),
-            ),
-          ),
-          SizedBox(height: 8.h),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {},
-              icon: Icon(Icons.bookmark_border_rounded, size: 14.sp, color: const Color(0xFF005B48)),
-              label: Text(
-                'Save Comparison',
-                style: GoogleFonts.poppins(
-                  fontSize: 11.5.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF005B48),
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF005B48), width: 1.2),
-                padding: EdgeInsets.symmetric(vertical: 10.h),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                  SizedBox(width: 4.w),
+                  Icon(Icons.arrow_forward_rounded, size: 14.sp),
+                ],
               ),
             ),
           ),

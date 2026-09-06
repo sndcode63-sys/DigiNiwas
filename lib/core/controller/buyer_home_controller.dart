@@ -59,6 +59,10 @@ class BuyerHomeController extends GetxController {
   final RxBool agentsLoading = true.obs;
   final RxBool exploreLoading = true.obs;
 
+  /// Search radius (in meters) used for the Explore Nearby map. Changing
+  /// this from the full-screen map re-fetches markers at the new radius.
+  final RxInt exploreRadius = 3000.obs;
+
   // Search reactive state
   final RxList<dynamic> searchResultsList = <dynamic>[].obs;
   final RxBool searchLoading = false.obs;
@@ -89,7 +93,6 @@ class BuyerHomeController extends GetxController {
   }
 
   /// GET /properties/search/list?keyword=value
-  /// GET /properties/search/list?keyword=value
   Future<void> searchProperties(String keyword) async {
     // Agar search box khali ya clear ho gaya hai, toh turant list clear karo
     if (keyword.trim().isEmpty) {
@@ -116,6 +119,7 @@ class BuyerHomeController extends GetxController {
       searchLoading.value = false;
     }
   }
+
   Future<void> _loadBuyerNameAndSavedProperties() async {
     await _loadBuyerName();
 
@@ -254,20 +258,35 @@ class BuyerHomeController extends GetxController {
     }
   }
 
-  /// 8. GET /api/v1/properties/explore-nearby?propertyId=...
-  Future<void> loadExploreNearby() async {
+  /// 8. GET /api/v1/properties/explore-nearby?propertyId=...&radius=...
+  /// Pass [radius] (meters) to change the search radius — used by the
+  /// full-screen Explore Map's radius chips. Defaults to [exploreRadius].
+  Future<void> loadExploreNearby({int? radius}) async {
     final propertyId = homeFeed.value?.recommendedProperties?.first.propertyId;
     if (propertyId == null || propertyId.isEmpty) {
       exploreLoading.value = false;
       return;
     }
+    if (radius != null) {
+      exploreRadius.value = radius;
+    }
     exploreLoading.value = true;
     try {
-      exploreNearby.value = await _homeRepository.getExploreNearby(propertyId: propertyId);
+      exploreNearby.value = await _homeRepository.getExploreNearby(
+        propertyId: propertyId,
+        radius: exploreRadius.value,
+      );
       exploreLoading.value = false;
     } catch (_) {
       exploreLoading.value = false;
     }
+  }
+
+  /// Change the search radius (meters) on the full-screen Explore Map and
+  /// re-fetch nearby markers for the currently loaded property.
+  Future<void> changeExploreRadius(int radiusMeters) async {
+    if (exploreRadius.value == radiusMeters && exploreNearby.value != null) return;
+    await loadExploreNearby(radius: radiusMeters);
   }
 
   // ---------------------------------------------------------------------

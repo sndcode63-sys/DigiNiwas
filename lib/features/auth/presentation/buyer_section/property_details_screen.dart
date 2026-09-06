@@ -1,16 +1,133 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/controller/property_detils_controller.dart';
+import '../../../../core/controller/buyer_home_controller.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/storage/secure_storage_service.dart';
 
-class PropertyDetailsScreen extends StatelessWidget {
+class PropertyDetailsScreen extends StatefulWidget {
   const PropertyDetailsScreen({super.key});
+
+  @override
+  State<PropertyDetailsScreen> createState() => _PropertyDetailsScreenState();
+}
+
+class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
+  late PageController _pageController;
+  Timer? _autoSlideTimer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _initializeSavedStatus();
+  }
+
+  Future<void> _initializeSavedStatus() async {
+    String? buyerId = await _getBuyerId();
+    if (buyerId != null && buyerId.isNotEmpty) {
+      final BuyerHomeController buyerHomeController = Get.isRegistered<BuyerHomeController>()
+          ? Get.find<BuyerHomeController>()
+          : Get.put(BuyerHomeController());
+
+      await buyerHomeController.fetchSavedProperties(buyerId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoSlide(int length) {
+    if (_autoSlideTimer != null || length <= 1) return;
+
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (_pageController.hasClients) {
+        if (_currentPage < length - 1) {
+          _currentPage++;
+        } else {
+          _currentPage = 0;
+        }
+        _pageController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  // 🔍 Helper to securely extract property ID from any argument format
+  String _extractPropertyId(Map<String, dynamic> propertyMap) {
+    return propertyMap['propertyId']?.toString() ??
+        propertyMap['_id']?.toString() ??
+        propertyMap['id']?.toString() ??
+        '';
+  }
+
+  // 🔍 Smart Buyer ID Fetcher
+  Future<String?> _getBuyerId() async {
+    String? buyerId = await StorageService.instance.buyerId;
+    if (buyerId == null || buyerId.isEmpty) {
+      buyerId = await StorageService.instance.userId;
+    }
+    if (buyerId == null || buyerId.isEmpty) {
+      final userJson = await SecureStorageService.instance.getUserData();
+      if (userJson != null && userJson.isNotEmpty) {
+        try {
+          final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+          buyerId = userMap['id']?.toString() ??
+              userMap['_id']?.toString() ??
+              userMap['buyerId']?.toString();
+        } catch (_) {}
+      }
+    }
+    return buyerId;
+  }
+
+  // Favorite Toggle with Real API Integration
+  Future<void> _handleFavoriteToggle(PropertyDetailsController detailsController) async {
+    final propertyId = _extractPropertyId(detailsController.property);
+
+    if (propertyId.isEmpty) return;
+
+    String? buyerId = await _getBuyerId();
+
+    if (buyerId == null || buyerId.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Please login to save properties.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFE53935),
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final BuyerHomeController buyerHomeController = Get.isRegistered<BuyerHomeController>()
+        ? Get.find<BuyerHomeController>()
+        : Get.put(BuyerHomeController());
+
+    await buyerHomeController.toggleSaveProperty(buyerId, propertyId);
+    detailsController.toggleFavorite();
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(PropertyDetailsController());
+
+    final BuyerHomeController buyerHomeController = Get.isRegistered<BuyerHomeController>()
+        ? Get.find<BuyerHomeController>()
+        : Get.put(BuyerHomeController());
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -31,14 +148,21 @@ class PropertyDetailsScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          Obx(() => IconButton(
-            icon: Icon(
-              controller.isFavorite.value ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: controller.isFavorite.value ? Colors.red : const Color(0xFF0F172A),
-              size: 20.sp,
-            ),
-            onPressed: controller.toggleFavorite,
-          )),
+          Obx(() {
+            final propertyId = _extractPropertyId(controller.property);
+
+            // Yahan ab safely check ho jayega ki ID saved list me mojood hai ya nahi
+            final isSaved = buyerHomeController.savedPropertyIds.contains(propertyId) || controller.isFavorite.value;
+
+            return IconButton(
+              icon: Icon(
+                isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: isSaved ? Colors.red : const Color(0xFF0F172A),
+                size: 20.sp,
+              ),
+              onPressed: () => _handleFavoriteToggle(controller),
+            );
+          }),
           IconButton(
             icon: Icon(Icons.share_outlined, color: const Color(0xFF0F172A), size: 20.sp),
             onPressed: controller.shareProperty,
@@ -66,7 +190,6 @@ class PropertyDetailsScreen extends StatelessWidget {
           );
         }
 
-        // Extracting images list safely for the gallery/carousel view
         final rawImages = controller.property['images'];
         final List<String> imageUrls = [];
         if (rawImages is List) {
@@ -78,8 +201,16 @@ class PropertyDetailsScreen extends StatelessWidget {
             }
           }
         }
+        // Fallback for single image snapshot if passed from saved items
+        if (imageUrls.isEmpty && controller.property['image'] != null) {
+          imageUrls.add(controller.property['image'].toString());
+        }
         if (imageUrls.isEmpty && controller.imageUrl.isNotEmpty) {
           imageUrls.add(controller.imageUrl);
+        }
+
+        if (imageUrls.isNotEmpty) {
+          _startAutoSlide(imageUrls.length);
         }
 
         return SingleChildScrollView(
@@ -87,7 +218,6 @@ class PropertyDetailsScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image Carousel / Stack with 360 Tour Button
               Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -95,7 +225,13 @@ class PropertyDetailsScreen extends StatelessWidget {
                     height: 260.h,
                     child: imageUrls.isNotEmpty
                         ? PageView.builder(
+                      controller: _pageController,
                       itemCount: imageUrls.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentPage = index;
+                        });
+                      },
                       itemBuilder: (context, index) {
                         return Image.network(
                           imageUrls[index],
@@ -118,6 +254,29 @@ class PropertyDetailsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                  if (imageUrls.length > 1)
+                    Positioned(
+                      bottom: 30.h,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          imageUrls.length,
+                              (index) => Container(
+                            margin: EdgeInsets.symmetric(horizontal: 3.w),
+                            width: _currentPage == index ? 16.w : 6.w,
+                            height: 6.h,
+                            decoration: BoxDecoration(
+                              color: _currentPage == index ? const Color(0xFF007A5E) : Colors.white.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(3.r),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
                   Positioned(
                     top: 14.h,
                     right: 16.w,
@@ -167,16 +326,14 @@ class PropertyDetailsScreen extends StatelessWidget {
                 ],
               ),
 
-              // Content Body
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 18.w),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Property ID & Transaction Type Badge
                     Row(
                       children: [
-                        if (controller.property['propertyId'] != null)
+                        if (controller.property['propertyId'] != null || controller.property['propertyCode'] != null)
                           Container(
                             padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
                             decoration: BoxDecoration(
@@ -185,7 +342,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                               border: Border.all(color: const Color(0xFFBCE7DA)),
                             ),
                             child: Text(
-                              'ID: ${controller.property['propertyId']}',
+                              'ID: ${controller.property['propertyId'] ?? controller.property['propertyCode']}',
                               style: GoogleFonts.poppins(fontSize: 10.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
                             ),
                           ),
@@ -206,7 +363,6 @@ class PropertyDetailsScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 8.h),
 
-                    // Title & Price Row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -270,7 +426,6 @@ class PropertyDetailsScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 14.h),
 
-                    // Meta Info Chips
                     Wrap(
                       spacing: 8.w,
                       runSpacing: 8.h,
@@ -284,7 +439,6 @@ class PropertyDetailsScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 20.h),
 
-                    // Description Section
                     Text(
                       'About Property',
                       style: GoogleFonts.poppins(
@@ -302,7 +456,7 @@ class PropertyDetailsScreen extends StatelessWidget {
                         height: 1.4,
                       ),
                     ),
-                    SizedBox(height: 40.h), // Extra space at bottom so content isn't hidden behind the bottom bar
+                    SizedBox(height: 40.h),
                   ],
                 ),
               ),
@@ -310,7 +464,6 @@ class PropertyDetailsScreen extends StatelessWidget {
           ),
         );
       }),
-      // 👇 Yeh raha fixed Bottom Navigation Bar jo WhatsApp aur Call buttons ko hamesha bottom par dikhayega
       bottomNavigationBar: Container(
         padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 20.h),
         decoration: BoxDecoration(
