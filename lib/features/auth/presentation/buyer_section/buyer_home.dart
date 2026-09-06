@@ -1,280 +1,51 @@
-import 'dart:convert';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/property_details_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/save_properties_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
-
-import '../../../../core/models/buer_dashboard_model.dart';
-import '../../../../core/models/explore_property.dart';
-import '../../../../core/models/near_by_agent.dart';
-import '../../../../core/models/popular_property.dart';
-import '../../../../core/models/propertt_category_filter.dart';
-import '../../../../core/models/property_boosted.dart';
-import '../../../../core/models/property_new_listing.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/controller/buyer_home_controller.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/routes/app_routes.dart';
-import '../../../../core/models/home_feed_model.dart';
-import '../../../../core/network/api_service.dart';
-import '../../../../core/storage/secure_storage_service.dart';
-import '../../data/home_repository.dart';
+import '../../../../core/utils/shimmer.dart';
+import '../../../../core/widgets/app_image.dart';
 import 'exprole_name.dart';
 import 'niwas_ai_section.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatelessWidget {
+  HomeScreen({super.key});
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
 
-class _HomeScreenState extends State<HomeScreen> {
-  final HomeRepository _homeRepository = HomeRepository(ApiService.instance);
-
-  bool _isLoading = true;
-  String? _error;
-
-  // Model states for all API endpoints
-  HomeFeedModel? _homeFeed;
-  BuerDashboardModel? _dashboardHeader;
-  PopularProperty? _popularLocationsData;
-  ProperttCategoryFilter? _categoryFilterData;
-  PropertyBoosted? _boostedData;
-  PropertyNewListing? _newListingsData;
-  NearByAgent? _agentsData;
-  ExploreNearbyData? _exploreNearby;
-
-  // Independent loading flags for secondary sections
-  bool _dashboardLoading = true;
-  bool _popularLoading = true;
-  bool _categoryFilterLoading = true;
-  bool _boostedLoading = true;
-  bool _newListingsLoading = true;
-  bool _agentsLoading = true;
-  bool _exploreLoading = true;
-
-  String _buyerName = 'Guest';
-  int _bottomNavIndex = 0;
-  String? _selectedCategoryTab;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBuyerName();
-    _loadHomeFeed();
-    _loadAllApiSections();
-  }
-
-  Future<void> _loadBuyerName() async {
-    final raw = await SecureStorageService.instance.getUserData();
-    if (raw == null || raw.isEmpty || !mounted) return;
-    try {
-      final user = Map<String, dynamic>.from(jsonDecode(raw) as Map);
-      final name = (user['name'] as String?)?.trim();
-      if (name != null && name.isNotEmpty) {
-        setState(() => _buyerName = name.split(' ').first);
-      }
-    } catch (_) {}
-  }
-
-  /// 1. GET /api/v1/home/feed
-  Future<void> _loadHomeFeed() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-    try {
-      final feed = await _homeRepository.getHomeFeed();
-      if (!mounted) return;
-      setState(() {
-        _homeFeed = feed;
-        _isLoading = false;
-      });
-      // Trigger explore nearby once we have the recommended property anchor
-      _loadExploreNearby();
-    } on HomeFeedException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.message;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Something went wrong while loading the home feed.';
-        _isLoading = false;
-      });
-    }
-  }
-
-  /// Kicks off all secondary API calls independently in parallel.
-  void _loadAllApiSections() {
-    _loadDashboardHeader();
-    _loadPopularLocations();
-    _loadCategoryFilter();
-    _loadBoostedProperties();
-    _loadNewListings();
-    _loadNearbyAgents();
-  }
-
-  /// 2. GET /api/v1/user/dashboard-header
-  Future<void> _loadDashboardHeader() async {
-    setState(() => _dashboardLoading = true);
-    try {
-      final header = await _homeRepository.getDashboardHeader();
-      if (!mounted) return;
-      setState(() {
-        _dashboardHeader = header;
-        _dashboardLoading = false;
-        if (header.user?.name != null && header.user!.name!.isNotEmpty) {
-          _buyerName = header.user!.name!.split(' ').first;
-        }
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _dashboardLoading = false);
-    }
-  }
-
-  /// 3. GET /api/v1/locations/popular
-  Future<void> _loadPopularLocations() async {
-    setState(() => _popularLoading = true);
-    try {
-      final popular = await _homeRepository.getPopularLocations();
-      if (!mounted) return;
-      setState(() {
-        _popularLocationsData = popular;
-        _popularLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _popularLoading = false);
-    }
-  }
-
-  /// 4. GET /api/v1/properties/categories
-  Future<void> _loadCategoryFilter({String? tab}) async {
-    setState(() {
-      _categoryFilterLoading = true;
-      _selectedCategoryTab = tab;
-    });
-    try {
-      final filter = await _homeRepository.getPropertyCategoryFilter(tab: tab);
-      if (!mounted) return;
-      setState(() {
-        _categoryFilterData = filter;
-        _categoryFilterLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _categoryFilterLoading = false);
-    }
-  }
-
-  /// 5. GET /api/v1/properties/boosted
-  Future<void> _loadBoostedProperties() async {
-    setState(() => _boostedLoading = true);
-    try {
-      final boosted = await _homeRepository.getBoostedPropertiesList();
-      if (!mounted) return;
-      setState(() {
-        _boostedData = boosted;
-        _boostedLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _boostedLoading = false);
-    }
-  }
-
-  /// 6. GET /api/v1/properties/new-listings
-  Future<void> _loadNewListings() async {
-    setState(() => _newListingsLoading = true);
-    try {
-      final listings = await _homeRepository.getNewListingsList();
-      if (!mounted) return;
-      setState(() {
-        _newListingsData = listings;
-        _newListingsLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _newListingsLoading = false);
-    }
-  }
-
-  /// 7. GET /api/v1/agents/nearby
-  Future<void> _loadNearbyAgents() async {
-    setState(() => _agentsLoading = true);
-    try {
-      final agents = await _homeRepository.getNearbyAgentsList();
-      if (!mounted) return;
-      setState(() {
-        _agentsData = agents;
-        _agentsLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _agentsLoading = false);
-    }
-  }
-
-  /// 8. GET /api/v1/properties/explore-nearby?propertyId=...
-  Future<void> _loadExploreNearby() async {
-    final propertyId = _homeFeed?.recommendedProperties?.first.propertyId;
-    if (propertyId == null || propertyId.isEmpty) {
-      if (mounted) setState(() => _exploreLoading = false);
-      return;
-    }
-    setState(() => _exploreLoading = true);
-    try {
-      final result = await _homeRepository.getExploreNearby(propertyId: propertyId);
-      if (!mounted) return;
-      setState(() {
-        _exploreNearby = result;
-        _exploreLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _exploreLoading = false);
-    }
-  }
-
-  Future<void> _refreshAll() async {
-    await _loadHomeFeed();
-    _loadAllApiSections();
-  }
-
-  String _greetingByTime() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }
+  final BuyerHomeController controller = Get.put(BuyerHomeController());
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.background,
-      body: _isLoading ? _buildLoadingView() : _buildBody(),
-      bottomNavigationBar: _isLoading ? null : _buildBottomNav(),
+
+      body: Obx(() {
+        return controller.isLoading.value
+            ? _buildLoadingView()
+            : _buildBody(context);
+      }),
+      bottomNavigationBar: Obx(() {
+        return controller.isLoading.value
+            ? const SizedBox.shrink()
+            : _buildBottomNav();
+      }),
     );
   }
 
-  /// Simple, non-shimmer loading state shown while the primary home feed loads.
+  /// Lightweight shimmer skeleton shown while the primary home feed loads —
+  /// mirrors the real layout (header, chips, cards, map, etc.) so the
+  /// screen doesn't jump once data arrives.
   Widget _buildLoadingView() {
-    return const Center(
-      child: CircularProgressIndicator(
-        color: Color(0xFF007A5E),
-      ),
-    );
+    return const HomeShimmer();
   }
 
   /// Small inline loader used for secondary sections that load independently.
@@ -291,9 +62,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Fully dynamic, cached network image with graceful loading + error states.
-  /// Every property/agent/area image on this screen goes through this so
-  /// caching behaviour stays consistent everywhere.
+  /// Thin wrapper around the shared [ImageCase] widget — kept so every
+  /// existing call site on this screen (`_cachedImage(url, width: ..., ...)`)
+  /// didn't need to change, while the actual image/placeholder/error
+  /// handling now lives in one reusable place used across the whole app.
   Widget _cachedImage(
       String? url, {
         required double width,
@@ -302,50 +74,20 @@ class _HomeScreenState extends State<HomeScreen> {
         IconData fallbackIcon = Icons.home_work_rounded,
         BorderRadius? borderRadius,
       }) {
-    Widget image;
-    if (url == null || url.trim().isEmpty) {
-      image = _imageFallback(width: width, height: height, icon: fallbackIcon);
-    } else {
-      image = CachedNetworkImage(
-        imageUrl: url,
-        width: width,
-        height: height,
-        fit: fit,
-        fadeInDuration: const Duration(milliseconds: 200),
-        placeholder: (context, _) => Container(
-          width: width,
-          height: height,
-          color: const Color(0xFFF1F6F8),
-          alignment: Alignment.center,
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2, color: const Color(0xFF007A5E).withOpacity(0.6)),
-          ),
-        ),
-        errorWidget: (context, _, __) => _imageFallback(width: width, height: height, icon: fallbackIcon),
-      );
-    }
-    if (borderRadius != null) {
-      return ClipRRect(borderRadius: borderRadius, child: image);
-    }
-    return image;
-  }
-
-  Widget _imageFallback({required double width, required double height, required IconData icon}) {
-    return Container(
+    return ImageCase(
+      url: url,
       width: width,
       height: height,
-      color: const Color(0xFFF1F6F8),
-      alignment: Alignment.center,
-      child: Icon(icon, color: const Color(0xFF007A5E), size: (height * 0.18).clamp(18, 40).toDouble()),
+      fit: fit,
+      fallbackIcon: fallbackIcon,
+      borderRadius: borderRadius,
     );
   }
 
-  Widget _buildBody() {
-    switch (_bottomNavIndex) {
+  Widget _buildBody(BuildContext context) {
+    switch (controller.bottomNavIndex.value) {
       case 0:
-        return _buildContent();
+        return _buildContent(context);
       case 1:
         return ExproleName();
       case 2:
@@ -355,13 +97,13 @@ class _HomeScreenState extends State<HomeScreen> {
       case 4:
         return const ProfileScreen();
       default:
-        return _buildContent();
+        return _buildContent(context);
     }
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: _refreshAll,
+      onRefresh: controller.refreshAll,
       color: const Color(0xFF007A5E),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -369,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
-            if (_error != null) _buildFeedErrorBanner(),
+            if (controller.error.value != null) _buildFeedErrorBanner(),
             SizedBox(height: 14.h),
             _buildCategoryChips(),
             SizedBox(height: 14.h),
@@ -378,8 +120,8 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildQuickAiGrid(),
             SizedBox(height: 14.h),
             _buildSectionTitle(
-              _selectedCategoryTab != null ? '${_selectedCategoryTab!} Properties' : 'Recommended For You',
-              showViewAll: _selectedCategoryTab == null,
+              controller.selectedCategoryTab.value != null ? '${controller.selectedCategoryTab.value!} Properties' : 'Recommended For You',
+              showViewAll: controller.selectedCategoryTab.value == null,
             ),
             SizedBox(height: 8.h),
             _buildRecommendedCards(),
@@ -388,15 +130,15 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(height: 18.h),
             _buildSectionTitle('Explore Near You'),
             SizedBox(height: 8.h),
-            _buildExploreMap(),
+            _buildExploreMap(context),
             SizedBox(height: 18.h),
             _buildSectionTitle('New Listings', showViewAll: true),
             SizedBox(height: 8.h),
             _buildNewListings(),
             SizedBox(height: 18.h),
             _buildSectionTitle(
-              _homeFeed?.location?.city != null && _homeFeed!.location!.city!.isNotEmpty
-                  ? 'Popular near ${_homeFeed!.location!.city}'
+              controller.homeFeed.value?.location?.city != null && controller.homeFeed.value!.location!.city!.isNotEmpty
+                  ? 'Popular near ${controller.homeFeed.value!.location!.city}'
                   : 'Popular Near You',
             ),
             SizedBox(height: 8.h),
@@ -429,12 +171,12 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
-              _error ?? 'Could not load home feed.',
+              controller.error.value ?? 'Could not load home feed.',
               style: GoogleFonts.poppins(fontSize: 11.5.sp, color: const Color(0xFFC62828)),
             ),
           ),
           TextButton(
-            onPressed: _loadHomeFeed,
+            onPressed: controller.loadHomeFeed,
             child: Text(
               'Retry',
               style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFFC62828)),
@@ -446,10 +188,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
-    final locationLabel = _dashboardHeader?.location?.city?.isNotEmpty == true
-        ? '${_dashboardHeader!.location!.city}, ${_dashboardHeader!.location!.state ?? ''}'
-        : (_homeFeed?.location?.city?.isNotEmpty == true
-        ? '${_homeFeed!.location!.city}, ${_homeFeed!.location!.state ?? ''}'
+    final locationLabel = controller.dashboardHeader.value?.location?.city?.isNotEmpty == true
+        ? '${controller.dashboardHeader.value!.location!.city}, ${controller.dashboardHeader.value!.location!.state ?? ''}'
+        : (controller.homeFeed.value?.location?.city?.isNotEmpty == true
+        ? '${controller.homeFeed.value!.location!.city}, ${controller.homeFeed.value!.location!.state ?? ''}'
         : 'Fetching location...');
 
     return Container(
@@ -528,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  _buyerName.isNotEmpty ? _buyerName.substring(0, 2).toUpperCase() : 'RH',
+                  controller.buyerName.value.isNotEmpty ? controller.buyerName.value.substring(0, 2).toUpperCase() : 'RH',
                   style: GoogleFonts.poppins(
                     color: const Color(0xFF0F2544),
                     fontSize: 14.sp,
@@ -558,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(height: 18.h),
           Text(
-            _dashboardHeader?.greeting ?? '${_greetingByTime()}, $_buyerName',
+            controller.dashboardHeader.value?.greeting ?? '${controller.greetingByTime()}, ${controller.buyerName.value}',
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontSize: 22.sp,
@@ -627,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     // Dynamic counts coming straight from the categories filter API.
-    final apiCategories = _categoryFilterData?.categories ?? [];
+    final apiCategories = controller.categoryFilterData.value?.categories ?? [];
     int? countFor(String label) {
       for (final c in apiCategories) {
         if ((c.name ?? '').toLowerCase() == label.toLowerCase()) return c.count;
@@ -640,18 +382,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: items.map((item) {
           final (icon, label, iconColor, bgColor) = item;
-          final isSelected = _selectedCategoryTab == label;
+          final isSelected = controller.selectedCategoryTab.value == label;
           final count = countFor(label);
           return Expanded(
             child: GestureDetector(
-              onTap: () {
-                if (isSelected) {
-                  // Tap again to clear the active filter.
-                  setState(() => _selectedCategoryTab = null);
-                } else {
-                  _loadCategoryFilter(tab: label);
-                }
-              },
+              // Tapping an already-selected chip clears the filter; the
+              // toggle logic itself lives in the controller.
+              onTap: () => controller.onCategoryChipTap(label),
               child: Container(
                 margin: EdgeInsets.symmetric(horizontal: 4.w),
                 height: 78.h,
@@ -809,13 +546,13 @@ class _HomeScreenState extends State<HomeScreen> {
     // When a category chip (Buy/Rent/Plot/Commercial) is active, this section
     // swaps to show that filter's results instead of the default home-feed
     // recommendations — tapping a tab changes what's shown right here.
-    if (_selectedCategoryTab != null) {
-      if (_categoryFilterLoading) {
+    if (controller.selectedCategoryTab.value != null) {
+      if (controller.categoryFilterLoading.value) {
         return _sectionLoader(height: 380);
       }
-      final filtered = _categoryFilterData?.properties ?? [];
+      final filtered = controller.categoryFilterData.value?.properties ?? [];
       if (filtered.isEmpty) {
-        return _buildEmptySectionMessage('No ${_selectedCategoryTab!} properties found near you.');
+        return _buildEmptySectionMessage('No ${controller.selectedCategoryTab.value!} properties found near you.');
       }
       return _recommendedCardsList(
         count: filtered.length,
@@ -830,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final properties = _homeFeed?.recommendedProperties ?? [];
+    final properties = controller.homeFeed.value?.recommendedProperties ?? [];
     if (properties.isEmpty) {
       return _buildEmptySectionMessage('No recommended properties available.');
     }
@@ -887,45 +624,74 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Tapping the image/top area also opens details
-                GestureDetector(
-                  onTap: () {
-                    context.push(
-                      AppRoutes.propertyDetails,
-                      extra: {'property': jsonAt(index)},
-                    );
-                  },
-                  child: Stack(
-                    children: [
-                      _cachedImage(
-                        imageUrlAt(index),
-                        width: 278.w,
-                        height: 208.h,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                Stack(
+                  children: [
+                    _cachedImage(
+                      imageUrlAt(index),
+                      width: 278.w,
+                      height: 208.h,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                    ),
+                    // Verified Badge (Top-Left)
+                    Positioned(
+                      top: 10.h,
+                      left: 10.w,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 4.h),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(20.r),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle_outline_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
+                            SizedBox(width: 4.w),
+                            Text(
+                              'Verified',
+                              style: GoogleFonts.poppins(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
+                            ),
+                          ],
+                        ),
                       ),
-                      Positioned(
-                        top: 10.h,
-                        left: 10.w,
+                    ),
+                    // Heart / Favorite Icon (Top-Right)
+                    Positioned(
+                      top: 10.h,
+                      right: 10.w,
+                      child: GestureDetector(
+                        onTap: () {
+                          Get.snackbar(
+                            'Favorite',
+                            'Property favorite status updated!',
+                            snackPosition: SnackPosition.BOTTOM,
+                            backgroundColor: const Color(0xFF0F2544),
+                            colorText: Colors.white,
+                            duration: const Duration(seconds: 1),
+                          );
+                        },
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 4.h),
+                          padding: EdgeInsets.all(7.r),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
-                            borderRadius: BorderRadius.circular(20.r),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle_outline_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
-                              SizedBox(width: 4.w),
-                              Text(
-                                'Verified',
-                                style: GoogleFonts.poppins(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
+                            color: Colors.white.withOpacity(0.9),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
+                          child: Icon(
+                            Icons.favorite_border_rounded,
+                            size: 16.sp,
+                            color: const Color(0xFFE53935),
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 Padding(
                   padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
@@ -978,7 +744,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                // VIEW button — uses jsonAt(index), NOT `item`
+                // VIEW button
                 Padding(
                   padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
                   child: SizedBox(
@@ -989,9 +755,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(10.r),
                         onTap: () {
-                          context.push(
+                          Get.toNamed(
                             AppRoutes.propertyDetails,
-                            extra: {'property': jsonAt(index)},
+                            arguments: {'property': jsonAt(index)},
                           );
                         },
                         child: Padding(
@@ -1019,6 +785,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   Widget _buildEmptySectionMessage(String message) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
@@ -1040,10 +807,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBoostedSection() {
-    if (_boostedLoading) {
+    if (controller.boostedLoading.value) {
       return _sectionLoader(height: 190);
     }
-    final properties = _boostedData?.properties ?? [];
+    final properties = controller.boostedData.value?.properties ?? [];
     if (properties.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -1081,7 +848,7 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) {
               final item = properties[index];
               return GestureDetector(
-                onTap: () => context.push(AppRoutes.propertyDetails, extra: {'property': item.toJson()}),
+                onTap: () => Get.toNamed(AppRoutes.propertyDetails, arguments: {'property': item.toJson()}),
                 child: Container(
                   width: 230.w,
                   margin: EdgeInsets.only(right: 14.w),
@@ -1160,15 +927,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildExploreMap() {
-    if (_exploreLoading) {
+  Widget _buildExploreMap(BuildContext context) {
+    if (controller.exploreLoading.value) {
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: 20.w),
         child: _sectionLoader(height: 190),
       );
     }
 
-    final explore = _exploreNearby;
+    final explore = controller.exploreNearby.value;
     final mapDetails = explore?.map;
 
     final centerLocation = mapDetails?.center != null
@@ -1299,7 +1066,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              context.push(AppRoutes.exploreMap);
+                              Get.toNamed(AppRoutes.exploreMap);
                             },
                             child: Container(
                               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
@@ -1357,10 +1124,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildNewListings() {
-    if (_newListingsLoading) {
+    if (controller.newListingsLoading.value) {
       return _sectionLoader(height: 240);
     }
-    final listings = _newListingsData?.properties ?? [];
+    final listings = controller.newListingsData.value?.properties ?? [];
     if (listings.isEmpty) {
       return _buildEmptySectionMessage('No new listings near you yet.');
     }
@@ -1375,7 +1142,7 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           final item = listings[index];
           return GestureDetector(
-            onTap: () => context.push(AppRoutes.propertyDetails, extra: {'property': item.toJson()}),
+            onTap: () => Get.toNamed(AppRoutes.propertyDetails, arguments: {'property': item.toJson()}),
             child: Container(
               width: 200.w,
               margin: EdgeInsets.only(right: 14.w),
@@ -1449,10 +1216,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPopularAreas() {
-    if (_popularLoading) {
+    if (controller.popularLoading.value) {
       return _sectionLoader(height: 171);
     }
-    final areas = _popularLocationsData?.areas ?? [];
+    final areas = controller.popularLocationsData.value?.areas ?? [];
     if (areas.isEmpty) {
       return _buildEmptySectionMessage('No popular areas available.');
     }
@@ -1466,85 +1233,110 @@ class _HomeScreenState extends State<HomeScreen> {
         physics: const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
           final area = areas[index];
-          return Container(
-            width: 171.w,
-            margin: EdgeInsets.only(right: 14.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18.r),
-              border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    _cachedImage(
-                      area.sampleImage,
-                      width: 169.w,
-                      height: 90.h,
-                      fallbackIcon: Icons.location_city_rounded,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
-                    ),
-                    if ((area.promotedCount ?? 0) > 0)
-                      Positioned(
-                        top: 8.h,
-                        right: 8.w,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0F2544),
-                            borderRadius: BorderRadius.circular(20.r),
-                          ),
-                          child: Text(
-                            '${area.promotedCount} Promoted',
-                            style: GoogleFonts.poppins(fontSize: 8.sp, fontWeight: FontWeight.w700, color: Colors.white),
+          return InkWell(
+            onTap: () {
+              // Mapping area data into a standard property format expected by PropertyDetailsScreen
+              final propertyData = {
+                'title': '${area.locality ?? 'Popular'} Area Properties',
+                'locality': area.locality ?? '',
+                'city': controller.homeFeed.value?.location?.city ?? 'Indore',
+                'images': area.sampleImage != null ? [{'url': area.sampleImage}] : [],
+                'price': 'Explore Available',
+                'description': 'Explore ${area.propertyCount ?? 0}+ verified properties available in ${area.locality ?? 'this area'}.',
+                'category': 'Residential',
+                'transactionType': 'Sale / Rent',
+              };
+
+              Get.toNamed(
+                AppRoutes.propertyDetails,
+                arguments: {'property': propertyData},
+              );
+            },
+            child: Container(
+              width: 171.w,
+              margin: EdgeInsets.only(right: 14.w),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18.r),
+                border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      _cachedImage(
+                        area.sampleImage,
+                        width: 169.w,
+                        height: 90.h,
+                        fallbackIcon: Icons.location_city_rounded,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                      ),
+                      if ((area.promotedCount ?? 0) > 0)
+                        Positioned(
+                          top: 8.h,
+                          right: 8.w,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F2544),
+                              borderRadius: BorderRadius.circular(20.r),
+                            ),
+                            child: Text(
+                              '${area.promotedCount} Promoted',
+                              style: GoogleFonts.poppins(fontSize: 8.sp, fontWeight: FontWeight.w700, color: Colors.white),
+                            ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-                Padding(
-                  padding: EdgeInsets.all(10.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        area.locality ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 12.sp, color: const Color(0xFF0F172A)),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        '${area.propertyCount ?? 0} Properties',
-                        style: GoogleFonts.poppins(color: const Color(0xFF94A3B8), fontSize: 10.5.sp),
-                      ),
                     ],
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: EdgeInsets.all(10.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          area.locality ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 12.sp, color: const Color(0xFF0F172A)),
+                        ),
+                        SizedBox(height: 2.h),
+                        Text(
+                          '${area.propertyCount ?? 0} Properties',
+                          style: GoogleFonts.poppins(color: const Color(0xFF94A3B8), fontSize: 10.5.sp),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
     );
   }
-
   // ---------------------------------------------------------------------
   // VERIFIED AGENTS — card + bottom sheet with the actual agent's data
   // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+  // VERIFIED AGENTS SECTION
+  // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+  // VERIFIED AGENTS SECTION (Matching your UI Design)
+  // ---------------------------------------------------------------------
   Widget _buildVerifiedAgent() {
-    if (_agentsLoading) {
+    if (controller.agentsLoading.value) {
       return _sectionLoader(height: 100);
     }
-    final agents = _agentsData?.agents ?? [];
+    final agents = controller.agentsData.value?.agents ?? [];
     if (agents.isEmpty) {
       return _buildEmptySectionMessage('No verified agents found near you yet.');
     }
 
     return SizedBox(
-      height: 112.h,
+      height: 100.h,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -1554,50 +1346,46 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           final agent = agents[index];
           final initial = (agent.name?.trim().isNotEmpty == true) ? agent.name!.trim().substring(0, 1).toUpperCase() : 'A';
-          final distance = agent.distanceKm;
-          final subtitle = agent.business?.businessName?.isNotEmpty == true
-              ? agent.business!.businessName!
-              : (agent.role ?? 'Real Estate Agent');
-          final canCall = agent.contact?.canCall == true && (agent.contact?.phone ?? agent.phone)?.isNotEmpty == true;
 
           return GestureDetector(
-            // Tap anywhere on the card -> open bottom sheet with THIS agent's data
-            onTap: () => _showAgentProfileBottomSheet(context, agent),
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              _showAgentProfileBottomSheet(context, agent);
+            },
             child: Container(
-              width: 300.w,
-              padding: EdgeInsets.all(14.w),
+              width: 290.w,
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20.r),
                 border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(24.r),
-                        child: (agent.avatar?.isNotEmpty == true)
-                            ? _cachedImage(agent.avatar, width: 48.w, height: 48.w, fallbackIcon: Icons.person)
-                            : CircleAvatar(
-                          radius: 24.r,
-                          backgroundColor: const Color(0xFFA8E6CF),
-                          child: Text(initial, style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: const Color(0xFF0F2544))),
-                        ),
+                  // Agent Avatar / Initial
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(28.r),
+                    child: (agent.avatar?.isNotEmpty == true)
+                        ? _cachedImage(agent.avatar, width: 50.w, height: 50.w, fallbackIcon: Icons.person)
+                        : CircleAvatar(
+                      radius: 25.r,
+                      backgroundColor: const Color(0xFFA8E6CF),
+                      child: Text(
+                        initial,
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: const Color(0xFF0F2544), fontSize: 16.sp),
                       ),
-                      if (agent.isVerified == true)
-                        Positioned(
-                          bottom: -1,
-                          right: -1,
-                          child: Container(
-                            padding: EdgeInsets.all(1.5.w),
-                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                            child: Icon(Icons.verified_rounded, size: 13.sp, color: const Color(0xFF007A5E)),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                   SizedBox(width: 12.w),
+
+                  // Name & Verified Badge
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1607,40 +1395,56 @@ class _HomeScreenState extends State<HomeScreen> {
                           agent.name ?? 'Agent',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 12.5.sp),
-                        ),
-                        SizedBox(height: 2.h),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF007A5E)),
-                        ),
-                        if (distance != null) ...[
-                          SizedBox(height: 2.h),
-                          Text(
-                            '${distance is double ? distance.toStringAsFixed(1) : distance} km away',
-                            style: GoogleFonts.poppins(fontSize: 9.5.sp, color: const Color(0xFF94A3B8)),
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.sp,
+                            color: const Color(0xFF0F172A),
                           ),
-                        ],
+                        ),
+                        SizedBox(height: 4.h),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F7F2),
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.verified_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
+                              SizedBox(width: 4.w),
+                              Text(
+                                'Verified Partner',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF007A5E),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  if (canCall)
-                    GestureDetector(
-                      // Stop the tap from bubbling up to the card's onTap (which opens the sheet)
-                      onTap: () {
-                        final phone = agent.contact?.phone ?? agent.phone;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Calling $phone...')),
-                        );
-                      },
-                      child: Container(
-                        padding: EdgeInsets.all(8.w),
-                        decoration: BoxDecoration(color: const Color(0xFFEFF8F5), shape: BoxShape.circle),
-                        child: Icon(Icons.call_rounded, size: 16.sp, color: const Color(0xFF007A5E)),
+                  SizedBox(width: 8.w),
+
+                  // Profile Outline Button
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF007A5E), width: 1.2),
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Text(
+                      'Profile',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF007A5E),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -1650,25 +1454,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Bottom sheet showing the tapped agent's real data (name, avatar,
-  /// business, role, distance, verification, contact) — pulled straight
-  /// from the NearByAgent API response, no hardcoded/demo values.
+
+  /// Dynamic Agent Profile Bottom Sheet mapping 100% API response data
   void _showAgentProfileBottomSheet(BuildContext context, dynamic agent) {
-    final name = agent.name ?? 'Agent';
+    final name = agent.name ?? 'Verified Agent';
     final initial = name.trim().isNotEmpty ? name.trim().substring(0, 1).toUpperCase() : 'A';
+    final avatar = agent.avatar;
+
+    // Business info from API response
     final businessName = agent.business?.businessName;
-    final role = agent.role ?? 'Real Estate Agent';
+    final businessType = agent.business?.businessType;
+    final gstin = agent.business?.gstin;
+    final officeAddress = agent.business?.officeAddress;
+
+    final role = agent.role ?? agent.accountType ?? 'Real Estate Agent';
     final subtitle = (businessName != null && businessName.isNotEmpty) ? businessName : role;
     final distance = agent.distanceKm;
     final isVerified = agent.isVerified == true;
-    final phone = agent.contact?.phone ?? agent.phone;
-    final canCall = agent.contact?.canCall == true && (phone != null && phone.toString().isNotEmpty);
-    final email = agent.contact?.email ?? agent.email;
-    final experienceYears = agent.experienceYears ?? agent.yearsOfExperience;
-    final rating = agent.rating;
-    final reviewCount = agent.reviewCount ?? agent.reviewsCount;
-    final listingsCount = agent.listingsCount ?? agent.activeListingsCount;
-    final serviceAreas = agent.serviceAreas ?? agent.areasCovered;
+
+    // Contact details
+    final phone = agent.contact?.phone ?? agent.phone ?? '';
+    final email = agent.email ?? '';
+    final canCall = agent.contact?.canCall == true || phone.isNotEmpty;
+
+    // RERA & Location details
+    final reraStatus = agent.rera?.verificationStatus;
+    final reraNumber = agent.rera?.registrationNumber;
+    final serviceLocalities = agent.location?.serviceLocalities ?? [];
 
     showModalBottomSheet(
       context: context,
@@ -1676,11 +1488,11 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.72,
+          initialChildSize: 0.75,
           minChildSize: 0.4,
-          maxChildSize: 0.92,
+          maxChildSize: 0.95,
           expand: false,
-          builder: (context, scrollController) {
+          builder: (ctx, scrollController) {
             return Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -1688,7 +1500,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Column(
                 children: [
-                  // Handle + header
+                  // Handle & Header
                   Padding(
                     padding: EdgeInsets.fromLTRB(20.w, 12.h, 16.w, 8.h),
                     child: Column(
@@ -1706,7 +1518,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Agent Profile',
+                              'Agent Profile Details',
                               style: GoogleFonts.poppins(
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.w700,
@@ -1725,146 +1537,196 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+
+                  // Scrollable Content
                   Expanded(
                     child: SingleChildScrollView(
                       controller: scrollController,
                       physics: const BouncingScrollPhysics(),
                       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Avatar
-                          Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(40.r),
-                                child: (agent.avatar?.isNotEmpty == true)
-                                    ? _cachedImage(agent.avatar, width: 80.w, height: 80.w, fallbackIcon: Icons.person)
-                                    : Container(
-                                  width: 80.w,
-                                  height: 80.w,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFA8E6CF),
-                                    shape: BoxShape.circle,
+                          // Profile Header
+                          Center(
+                            child: Column(
+                              children: [
+                                Stack(
+                                  alignment: Alignment.bottomRight,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(40.r),
+                                      child: (avatar != null && avatar.isNotEmpty)
+                                          ? Image.network(
+                                        avatar,
+                                        width: 80.w,
+                                        height: 80.w,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => _largeInitialAvatar(initial),
+                                      )
+                                          : _largeInitialAvatar(initial),
+                                    ),
+                                    if (isVerified)
+                                      Container(
+                                        width: 20.w,
+                                        height: 20.w,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 2.5),
+                                        ),
+                                        child: Icon(Icons.verified_rounded, color: const Color(0xFF00A884), size: 18.sp),
+                                      ),
+                                  ],
+                                ),
+                                SizedBox(height: 12.h),
+                                Text(
+                                  name,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF0F172A),
                                   ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    initial,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 26.sp,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF0F2544),
+                                ),
+                                SizedBox(height: 3.h),
+                                Text(
+                                  subtitle,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11.5.sp,
+                                    color: const Color(0xFF64748B),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (isVerified) ...[
+                                  SizedBox(height: 10.h),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE8F7F2),
+                                      borderRadius: BorderRadius.circular(20.r),
+                                      border: Border.all(color: const Color(0xFFBCE7DA), width: 0.8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.verified_user_outlined, size: 13.sp, color: const Color(0xFF007A5E)),
+                                        SizedBox(width: 5.w),
+                                        Text(
+                                          'DigiNiwas Verified Partner',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11.sp,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF007A5E),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                              ),
-                              if (isVerified)
-                                Container(
-                                  width: 20.w,
-                                  height: 20.w,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2.5),
-                                  ),
-                                  child: Icon(Icons.verified_rounded, color: const Color(0xFF00A884), size: 18.sp),
-                                ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 20.h),
+
+                          // Badges (Distance / RERA Status)
+                          Wrap(
+                            spacing: 8.w,
+                            runSpacing: 8.h,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              if (distance != null)
+                                _tagBadge('📍 ${distance is double ? distance.toStringAsFixed(1) : distance} km away'),
+                              if (reraStatus != null)
+                                _tagBadge('🛡️ RERA: $reraStatus'),
                             ],
                           ),
-                          SizedBox(height: 12.h),
-                          Text(
-                            name,
-                            style: GoogleFonts.poppins(
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF0F172A),
+
+                          // Business Information Card
+                          if (businessName != null || businessType != null || (gstin != null && gstin.isNotEmpty) || (officeAddress != null && officeAddress.isNotEmpty)) ...[
+                            SizedBox(height: 18.h),
+                            Text(
+                              'Business Details',
+                              style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
                             ),
-                          ),
-                          SizedBox(height: 3.h),
-                          Text(
-                            subtitle,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.poppins(
-                              fontSize: 11.5.sp,
-                              color: const Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (isVerified) ...[
-                            SizedBox(height: 10.h),
+                            SizedBox(height: 8.h),
                             Container(
-                              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
+                              width: double.infinity,
+                              padding: EdgeInsets.all(12.w),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE8F7F2),
-                                borderRadius: BorderRadius.circular(20.r),
-                                border: Border.all(color: const Color(0xFFBCE7DA), width: 0.8),
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14.r),
+                                border: Border.all(color: const Color(0xFFEDF2F7)),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.verified_user_outlined, size: 13.sp, color: const Color(0xFF007A5E)),
-                                  SizedBox(width: 5.w),
-                                  Text(
-                                    'DigiNiwas Verified Partner',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF007A5E),
-                                    ),
-                                  ),
+                                  if (businessName != null && businessName.isNotEmpty) ...[
+                                    Text('Company: $businessName', style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
+                                    SizedBox(height: 4.h),
+                                  ],
+                                  if (businessType != null && businessType.isNotEmpty) ...[
+                                    Text('Type: $businessType', style: GoogleFonts.poppins(fontSize: 11.sp, color: const Color(0xFF64748B))),
+                                    SizedBox(height: 4.h),
+                                  ],
+                                  if (gstin != null && gstin.isNotEmpty) ...[
+                                    Text('GSTIN: $gstin', style: GoogleFonts.poppins(fontSize: 11.sp, color: const Color(0xFF64748B))),
+                                    SizedBox(height: 4.h),
+                                  ],
+                                  if (officeAddress != null && officeAddress.isNotEmpty) ...[
+                                    Text('Office: $officeAddress', style: GoogleFonts.poppins(fontSize: 11.sp, color: const Color(0xFF64748B))),
+                                  ],
                                 ],
                               ),
                             ),
                           ],
 
-                          // Dynamic tag chips — only shown when data actually exists
-                          if (distance != null || (rating != null) || experienceYears != null) ...[
-                            SizedBox(height: 14.h),
-                            Wrap(
-                              spacing: 8.w,
-                              runSpacing: 8.h,
-                              alignment: WrapAlignment.center,
-                              children: [
-                                if (rating != null) _tagBadge('⭐ $rating${reviewCount != null ? ' ($reviewCount reviews)' : ''}'),
-                                if (experienceYears != null) _tagBadge('🏢 $experienceYears+ yrs experience'),
-                                if (distance != null)
-                                  _tagBadge('📍 ${distance is double ? distance.toStringAsFixed(1) : distance} km away'),
-                              ],
+                          // RERA Registration Card
+                          if (reraNumber != null && reraNumber.isNotEmpty) ...[
+                            SizedBox(height: 16.h),
+                            Text(
+                              'RERA Registration',
+                              style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                            ),
+                            SizedBox(height: 6.h),
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(12.w),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(14.r),
+                                border: Border.all(color: const Color(0xFFEDF2F7)),
+                              ),
+                              child: Text(
+                                'Reg No: $reraNumber',
+                                style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                              ),
                             ),
                           ],
 
-                          if (serviceAreas != null && (serviceAreas as List).isNotEmpty) ...[
-                            SizedBox(height: 14.h),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Service Areas',
-                                style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-                              ),
+                          // Service Localities Chips
+                          if (serviceLocalities.isNotEmpty) ...[
+                            SizedBox(height: 16.h),
+                            Text(
+                              'Service Localities',
+                              style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
                             ),
                             SizedBox(height: 8.h),
                             Wrap(
                               spacing: 8.w,
                               runSpacing: 8.h,
-                              children: serviceAreas.map<Widget>((a) => _tagBadge('$a')).toList(),
+                              children: serviceLocalities.map<Widget>((loc) => _tagBadge('$loc')).toList(),
                             ),
                           ],
 
-                          if (listingsCount != null) ...[
-                            SizedBox(height: 20.h),
-                            Row(
-                              children: [
-                                Expanded(child: _kpiCard('$listingsCount', 'Active Listings')),
-                                if (email != null) ...[
-                                  SizedBox(width: 10.w),
-                                  Expanded(child: _kpiCard(isVerified ? 'Yes' : 'No', 'Verified')),
-                                ],
-                              ],
-                            ),
-                          ],
-
-                          if (phone != null && phone.toString().isNotEmpty) ...[
-                            SizedBox(height: 18.h),
+                          // Contact Information Card
+                          SizedBox(height: 16.h),
+                          Text(
+                            'Contact Information',
+                            style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                          ),
+                          SizedBox(height: 8.h),
+                          if (phone.isNotEmpty) ...[
                             Container(
                               width: double.infinity,
                               padding: EdgeInsets.all(12.w),
@@ -1879,16 +1741,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                   SizedBox(width: 8.w),
                                   Expanded(
                                     child: Text(
-                                      '$phone',
+                                      phone,
                                       style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                          if (email != null && email.toString().isNotEmpty) ...[
                             SizedBox(height: 10.h),
+                          ],
+                          if (email.isNotEmpty) ...[
                             Container(
                               width: double.infinity,
                               padding: EdgeInsets.all(12.w),
@@ -1903,7 +1765,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   SizedBox(width: 8.w),
                                   Expanded(
                                     child: Text(
-                                      '$email',
+                                      email,
                                       style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
                                     ),
                                   ),
@@ -1916,6 +1778,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+
+                  // Bottom Buttons (WhatsApp & Call)
                   Container(
                     padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 24.h),
                     decoration: BoxDecoration(
@@ -1931,15 +1795,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          flex: 1,
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                SnackBar(content: Text('Message $name')),
-                              );
+                              Navigator.of(sheetContext).pop();
+                              _launchAgentWhatsApp(phone, name);
                             },
                             icon: Icon(Icons.chat_bubble_outline_rounded, size: 16.sp),
-                            label: Text('Message', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+                            label: Text('WhatsApp', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF007A5E),
                               side: const BorderSide(color: Color(0xFF007A5E), width: 1.4),
@@ -1950,13 +1812,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         SizedBox(width: 12.w),
                         Expanded(
-                          flex: 2,
-                          child: ElevatedButton(
-                            onPressed: canCall
+                          child: ElevatedButton.icon(
+                            onPressed: canCall && phone.isNotEmpty
                                 ? () {
-                              ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                SnackBar(content: Text('Calling $phone...')),
-                              );
+                              Navigator.of(sheetContext).pop();
+                              _makeAgentCall(phone);
                             }
                                 : null,
                             style: ElevatedButton.styleFrom(
@@ -1965,14 +1825,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               padding: EdgeInsets.symmetric(vertical: 12.h),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('Call Agent', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
-                                SizedBox(width: 6.w),
-                                Icon(Icons.call_rounded, size: 16.sp),
-                              ],
-                            ),
+                            icon: Icon(Icons.call_rounded, size: 16.sp),
+                            label: Text('Call Agent', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
                           ),
                         ),
                       ],
@@ -1985,6 +1839,37 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Widget _largeInitialAvatar(String initial) {
+    return Container(
+      width: 80.w,
+      height: 80.w,
+      decoration: const BoxDecoration(
+        color: Color(0xFFA8E6CF),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: GoogleFonts.poppins(fontSize: 26.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2544)),
+      ),
+    );
+  }
+
+  Future<void> _makeAgentCall(String phone) async {
+    final Uri url = Uri.parse("tel:$phone");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    }
+  }
+
+  Future<void> _launchAgentWhatsApp(String phone, String name) async {
+    final String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    final Uri url = Uri.parse("https://wa.me/$cleanPhone?text=Hello $name, I found your profile on DigiNiwas and want to connect.");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _tagBadge(String label) {
@@ -2001,41 +1886,6 @@ class _HomeScreenState extends State<HomeScreen> {
           fontWeight: FontWeight.w500,
           color: const Color(0xFF475569),
         ),
-      ),
-    );
-  }
-
-  Widget _kpiCard(String value, String label) {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF007A5E),
-              height: 1.2,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 10.sp,
-              color: const Color(0xFF64748B),
-              height: 1.2,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2198,7 +2048,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned(
             top: -20.h,
             child: GestureDetector(
-              onTap: () => setState(() => _bottomNavIndex = 2),
+              onTap: () => controller.changeBottomNavIndex(2),
               child: Container(
                 width: 58.w,
                 height: 58.w,
@@ -2226,12 +2076,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _navItem({required IconData icon, required String label, required int index}) {
-    final isSelected = _bottomNavIndex == index;
+    final isSelected = controller.bottomNavIndex.value == index;
     const activeColor = Color(0xFF007A5E);
     const inactiveColor = Color(0xFF7D8C99);
 
     return InkWell(
-      onTap: () => setState(() => _bottomNavIndex = index),
+      onTap: () => controller.changeBottomNavIndex(index),
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       child: Padding(
@@ -2310,7 +2160,7 @@ class ExploreMapViewScreen extends StatelessWidget {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: () => context.pop(),
+                  onTap: () => Get.back(),
                   child: Container(
                     padding: EdgeInsets.all(10.r),
                     decoration: BoxDecoration(

@@ -2,14 +2,14 @@ import 'dart:async';
 import 'package:diginiwas/features/auth/presentation/registration_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 
-import '../../../core/routes/app_router.dart';
+import '../../../core/routes/app_pages.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_toast.dart'; // <-- Yeh AppToast wali file import hai
 import '../application/auth_controller.dart';
 
@@ -20,7 +20,7 @@ enum _LocationDialogAction { retry, openLocationSettings, openAppSettings, cance
 /// or logging an existing user back in.
 enum OtpFlowMode { register, login }
 
-class OtpVerificationScreen extends ConsumerStatefulWidget {
+class OtpVerificationScreen extends StatefulWidget {
   final String phoneNumber;
   final OtpFlowMode mode;
 
@@ -37,11 +37,12 @@ class OtpVerificationScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<OtpVerificationScreen> createState() =>
+  State<OtpVerificationScreen> createState() =>
       _OtpVerificationScreenState();
 }
 
-class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
+class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+  final AuthController _authController = Get.find<AuthController>();
   final List<TextEditingController> _controllers =
   List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
@@ -114,7 +115,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   Future<void> _resendOtp() async {
     if (_isResending || _secondsRemaining > 0) return;
     setState(() => _isResending = true);
-    final success = await ref.read(authControllerProvider.notifier).resendOtp();
+    final success = await _authController.resendOtp();
     if (!mounted) return;
     setState(() => _isResending = false);
 
@@ -122,7 +123,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       _startTimer();
       AppToast.success(context, 'OTP resent successfully.');
     } else {
-      final backendError = ref.read(authControllerProvider).errorMessage;
+      final backendError = _authController.state.value.errorMessage;
       AppToast.error(context, backendError ?? 'Could not resend OTP.');
     }
   }
@@ -159,14 +160,14 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
       setState(() => _isVerifying = true);
 
-      final success = await ref.read(authControllerProvider.notifier).verifyOtp(otp);
+      final success = await _authController.verifyOtp(otp);
       print('🟢 verifyOtp() controller call returned $success');
 
       if (!mounted) return;
       setState(() => _isVerifying = false);
 
       if (!success) {
-        final backendError = ref.read(authControllerProvider).errorMessage;
+        final backendError = _authController.state.value.errorMessage;
         AppToast.error(context, backendError ?? 'Invalid OTP.');
         return;
       }
@@ -178,7 +179,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
             : 'Login successful!',
       );
 
-      context.go(dashboardRouteForRole(widget.role));
+      Get.offAllNamed(dashboardRouteForRole(widget.role));
     } catch (e, st) {
       // Anything thrown in here was previously vanishing silently (no
       // toast, no console line) — surface it loudly instead.
@@ -291,7 +292,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                           IconButton(
                             icon: Icon(Icons.edit_outlined,
                                 color: AppColors.primaryDark, size: 20.sp),
-                            onPressed: () => context.pop(),
+                            onPressed: () => Get.back(),
                           ),
                         ],
                       ),
@@ -359,45 +360,11 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                   // Verify OTP CTA
                   ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: 400.w),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 50.h,
-                      child: ElevatedButton(
-                        onPressed: _isVerifying ? null : _verifyOtp,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(26.r),
-                          ),
-                        ),
-                        child: _isVerifying
-                            ? SizedBox(
-                          width: 20.w,
-                          height: 20.w,
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            valueColor:
-                            AlwaysStoppedAnimation(AppColors.white),
-                          ),
-                        )
-                            : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Verify OTP',
-                              style: TextStyle(
-                                fontSize: 15.5.sp,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.white,
-                              ),
-                            ),
-                            SizedBox(width: 6.w),
-                            Icon(Icons.arrow_forward_rounded,
-                                color: AppColors.white, size: 18.sp),
-                          ],
-                        ),
-                      ),
+                    child: AppButton(
+                      label: 'Verify OTP',
+                      icon: Icons.arrow_forward_rounded,
+                      isLoading: _isVerifying,
+                      onPressed: _isVerifying ? null : _verifyOtp,
                     ),
                   ),
                   SizedBox(height: 20.h),
@@ -425,10 +392,10 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   /// through the system prompts as many times as the user is willing to.
   /// Returns false only if the user explicitly cancels.
   Future<bool> _ensureLocationCaptured() async {
-    final notifier = ref.read(authControllerProvider.notifier);
+    final notifier = _authController;
 
     // Already have a fix from the previous screen (register/send-otp).
-    if (ref.read(authControllerProvider).location != null) {
+    if (_authController.state.value.location != null) {
       print('🟢 location already captured earlier, skipping prompt.');
       return true;
     }
@@ -441,7 +408,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         return true;
       }
 
-      final error = ref.read(authControllerProvider).locationError ??
+      final error = _authController.state.value.locationError ??
           'Could not fetch your location.';
       print('🔴 location capture failed -> $error');
       if (!mounted) return false;

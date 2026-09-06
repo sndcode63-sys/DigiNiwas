@@ -1,25 +1,26 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../application/auth_controller.dart';
 import 'otp.dart';
 
-class RegistrationScreen extends ConsumerStatefulWidget {
+class RegistrationScreen extends StatefulWidget {
   final String role;
 
   const RegistrationScreen({super.key, required this.role});
 
   @override
-  ConsumerState<RegistrationScreen> createState() => _RegistrationScreenState();
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
 
-class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
+class _RegistrationScreenState extends State<RegistrationScreen> {
+  final AuthController _authController = Get.find<AuthController>();
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -55,7 +56,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     setState(() => _isSubmitting = true);
 
     final phone = _phoneController.text.trim();
-    final success = await ref.read(authControllerProvider.notifier).register(
+    final success = await _authController.register(
       name: _nameController.text.trim(),
       phone: phone,
       email: _emailController.text.trim(),
@@ -67,13 +68,13 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
     if (success) {
       AppToast.success(context, 'OTP sent to $phone');
-      final locationError = ref.read(authControllerProvider).locationError;
+      final locationError = _authController.state.value.locationError;
       if (locationError != null) {
         AppToast.error(context, locationError);
       }
-      context.push(
+      Get.toNamed(
         AppRoutes.otp,
-        extra: {
+        arguments: {
           'phoneNumber': phone,
           'mode': OtpFlowMode.register,
           'role': widget.role,
@@ -81,7 +82,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       );
     } else {
       _showError(
-        ref.read(authControllerProvider).errorMessage ?? 'Registration failed. Please try again.',
+        _authController.state.value.errorMessage ?? 'Registration failed. Please try again.',
       );
     }
   }
@@ -215,73 +216,37 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     SizedBox(height: 20.h),
 
                     // Continue CTA Button inside Bottom Sheet
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50.h,
-                      child: ElevatedButton(
-                        onPressed: (isSheetValid && !isSheetSubmitting)
-                            ? () async {
-                          final phone = sheetPhoneController.text.trim();
-                          setModalState(() => isSheetSubmitting = true);
-                          final success = await ref.read(authControllerProvider.notifier).requestLoginOtp(
-                            phone: phone,
-                            role: widget.role,
-                          );
-                          if (!context.mounted) return;
-                          setModalState(() => isSheetSubmitting = false);
+                    AppButton(
+                      label: 'Continue',
+                      icon: Icons.arrow_forward_rounded,
+                      isLoading: isSheetSubmitting,
+                      onPressed: isSheetValid
+                          ? () async {
+                              final phone = sheetPhoneController.text.trim();
+                              setModalState(() => isSheetSubmitting = true);
+                              final success = await _authController.requestLoginOtp(
+                                phone: phone,
+                                role: widget.role,
+                              );
+                              if (!context.mounted) return;
+                              setModalState(() => isSheetSubmitting = false);
 
-                          if (success) {
-                            context.pop();
-                            AppToast.success(this.context, 'OTP sent to $phone');
-                            context.push(
-                              AppRoutes.otp,
-                              extra: {
-                                'phoneNumber': phone,
-                                'mode': OtpFlowMode.login,
-                                'role': widget.role,
-                              },
-                            );
-                          } else {
-                            AppToast.error(this.context, ref.read(authControllerProvider).errorMessage ?? 'Could not send OTP. Please try again.');
-                          }
-                        }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isSheetValid ? AppColors.primary : AppColors.border,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(26.r),
-                          ),
-                        ),
-                        child: isSheetSubmitting
-                            ? SizedBox(
-                                width: 20.w,
-                                height: 20.w,
-                                child: const CircularProgressIndicator(
-                                  strokeWidth: 2.4,
-                                  valueColor: AlwaysStoppedAnimation(AppColors.white),
-                                ),
-                              )
-                            : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Continue',
-                              style: TextStyle(
-                                fontSize: 15.sp,
-                                fontWeight: FontWeight.w700,
-                                color: isSheetValid ? AppColors.white : AppColors.textSecondary,
-                              ),
-                            ),
-                            SizedBox(width: 6.w),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              color: isSheetValid ? AppColors.white : AppColors.textSecondary,
-                              size: 18.sp,
-                            ),
-                          ],
-                        ),
-                      ),
+                              if (success) {
+                                Get.back();
+                                AppToast.success(this.context, 'OTP sent to $phone');
+                                Get.toNamed(
+                                  AppRoutes.otp,
+                                  arguments: {
+                                    'phoneNumber': phone,
+                                    'mode': OtpFlowMode.login,
+                                    'role': widget.role,
+                                  },
+                                );
+                              } else {
+                                AppToast.error(this.context, _authController.state.value.errorMessage ?? 'Could not send OTP. Please try again.');
+                              }
+                            }
+                          : null,
                     ),
                     SizedBox(height: 16.h),
 
@@ -520,47 +485,11 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     SizedBox(height: 22.h),
 
                     // Action Button (Enabled only when form is valid)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50.h,
-                      child: ElevatedButton(
-                        onPressed: (_isFormValid && !_isSubmitting) ? _handleContinue : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isFormValid ? AppColors.primary : AppColors.border,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(26.r),
-                          ),
-                        ),
-                        child: _isSubmitting
-                            ? SizedBox(
-                                width: 20.w,
-                                height: 20.w,
-                                child: const CircularProgressIndicator(
-                                  strokeWidth: 2.4,
-                                  valueColor: AlwaysStoppedAnimation(AppColors.white),
-                                ),
-                              )
-                            : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Continue',
-                              style: TextStyle(
-                                fontSize: 15.sp,
-                                fontWeight: FontWeight.w700,
-                                color: _isFormValid ? AppColors.white : AppColors.textSecondary,
-                              ),
-                            ),
-                            SizedBox(width: 6.w),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              color: _isFormValid ? AppColors.white : AppColors.textSecondary,
-                              size: 18.sp,
-                            ),
-                          ],
-                        ),
-                      ),
+                    AppButton(
+                      label: 'Continue',
+                      icon: Icons.arrow_forward_rounded,
+                      isLoading: _isSubmitting,
+                      onPressed: _isFormValid ? _handleContinue : null,
                     ),
                     SizedBox(height: 24.h),
 

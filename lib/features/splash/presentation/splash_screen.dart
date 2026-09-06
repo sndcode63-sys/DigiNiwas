@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 
-import '../../../core/providers/core_providers.dart';
-import '../../../core/routes/app_router.dart';
+import '../../../core/routes/app_pages.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../auth/data/auth_repository.dart';
 
-class SplashScreen extends ConsumerStatefulWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen>
+class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -48,7 +47,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Future<void> _checkAuthAndNavigate() async {
     await Future.delayed(const Duration(milliseconds: 2500));
 
-    final session = await ref.read(authRepositoryProvider).getStoredSession();
+    final session = await Get.find<AuthRepository>().getStoredSession();
 
     if (!mounted) return;
 
@@ -59,7 +58,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         ? dashboardRouteForRole(session['role'] as String?)
         : AppRoutes.chooseRole;
 
-    context.go(route);
+    Get.offAllNamed(route);
   }
 
   @override

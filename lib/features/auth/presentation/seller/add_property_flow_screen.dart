@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 
 import '../../../../core/routes/app_routes.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -53,7 +53,7 @@ class _AddPropertyFlowScreenState extends State<AddPropertyFlowScreen> {
             if (_currentStep > 0) {
               setState(() => _currentStep--);
             } else {
-              context.pop();
+              Get.back();
             }
           },
         ),
@@ -847,9 +847,9 @@ class _AddPropertyFlowScreenState extends State<AddPropertyFlowScreen> {
             ),
             SizedBox(height: 24.h),
             _primaryButton('Go to My Properties', () {
-              context.pushReplacement(AppRoutes.myProperties);
+              Get.offNamed(AppRoutes.myProperties);
             }),            SizedBox(height: 10.h),
-            _secondaryButton('Return to Home', () => context.pop()),
+            _secondaryButton('Return to Home', () => Get.back()),
           ],
         ),
       ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 
 import '../../../../core/routes/app_routes.dart';
 
@@ -193,7 +193,7 @@ class _HeaderSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 // Map View Click Action
                 _buildFilterButton(Icons.map_outlined, 'Map View', () {
-                  context.push(AppRoutes.mapView);
+                  Get.toNamed(AppRoutes.mapView);
                 }, isPrimary: true),
               ],
             ),

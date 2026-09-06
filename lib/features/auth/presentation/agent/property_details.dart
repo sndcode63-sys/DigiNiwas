@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -333,7 +333,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
           if (_viewModel.currentStep > 0 && _viewModel.currentStep < 5) {
             _prevStep();
           } else {
-            context.pop();
+            Get.back();
           }
         },
       ),
@@ -361,7 +361,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: kDarkNavy),
-        onPressed: () => context.pop(),
+        onPressed: () => Get.back(),
       ),
       title: Row(
         mainAxisSize: MainAxisSize.min,

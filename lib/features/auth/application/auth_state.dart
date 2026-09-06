@@ -3,7 +3,8 @@ import '../../../core/services/location_service.dart';
 enum AuthStatus { idle, loading, otpSent, verified, error }
 
 /// Immutable state consumed by every auth screen via
-/// `ref.watch(authControllerProvider)`.
+/// `Get.find<AuthController>().state.value` (wrap reads in `Obx` to
+/// rebuild when it changes).
 class AuthState {
   const AuthState({
     this.status = AuthStatus.idle,

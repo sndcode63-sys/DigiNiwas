@@ -1,7 +1,7 @@
 import 'package:diginiwas/features/auth/presentation/agent/property_details.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 
 import '../../../../core/routes/app_routes.dart';
 
@@ -320,7 +320,7 @@ class _TaskScreenState extends State<TaskScreen> {
                       alignment: Alignment.centerRight,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          context.push(AppRoutes.agentAddProperty);
+                          Get.toNamed(AppRoutes.agentAddProperty);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF005B48),

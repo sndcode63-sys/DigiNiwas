@@ -10,11 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # State management
-  flutter_riverpod: ^2.5.1
-
-  # Routing
-  go_router: ^14.2.0
+  # State management & routing (GetX)
+  get: ^4.6.6
 
   # Location
   geolocator: ^13.0.1

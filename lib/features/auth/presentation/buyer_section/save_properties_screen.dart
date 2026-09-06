@@ -5,7 +5,7 @@ import 'package:diginiwas/features/auth/presentation/buyer_section/property_deta
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/routes/app_routes.dart';
@@ -90,7 +90,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       return;
     }
 
-    context.push(AppRoutes.compareProperties, extra: {'comparedProperties': selectedItems});
+    Get.toNamed(AppRoutes.compareProperties, arguments: {'comparedProperties': selectedItems});
   }
 
   void _toggleCompareAll() {
@@ -561,7 +561,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                       flex: 1,
                       child: ElevatedButton(
                         onPressed: () {
-                          context.push(AppRoutes.propertyDetails, extra: {'property': item});
+                          Get.toNamed(AppRoutes.propertyDetails, arguments: {'property': item});
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0F2544),

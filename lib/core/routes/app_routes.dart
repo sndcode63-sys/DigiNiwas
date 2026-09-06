@@ -1,6 +1,6 @@
-/// All go_router paths live here. Navigate with the `context.go` /
-/// `context.push` / `context.pop` extensions from `go_router` — see
-/// `app_router.dart` for how each path maps to a screen.
+/// All GetX route names live here. Navigate with `Get.toNamed` /
+/// `Get.offNamed` / `Get.offAllNamed` / `Get.back` — see `app_pages.dart`
+/// for how each route maps to a screen (`GetPage`).
 abstract class AppRoutes {
   AppRoutes._();
 

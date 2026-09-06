@@ -2,23 +2,22 @@
 // USER PROFILE SCREEN (MATCHING SCREENSHOT UI)
 // =====================================================================
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../application/auth_controller.dart';
 
-class ProfileScreen extends ConsumerStatefulWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoggingOut = false;
 
   Future<void> _confirmLogout() async {
@@ -63,14 +62,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _isLoggingOut = true);
-    await ref.read(authControllerProvider.notifier).logout();
+    await Get.find<AuthController>().logout();
 
     if (!mounted) return;
     setState(() => _isLoggingOut = false);
 
     AppToast.success(context, 'Logged out successfully');
     if (!context.mounted) return;
-    context.go(AppRoutes.chooseRole);
+    Get.offAllNamed(AppRoutes.chooseRole);
   }
 
   @override

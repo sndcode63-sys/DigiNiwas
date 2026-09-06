@@ -1,30 +1,35 @@
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get/get.dart';
 
-import '../../../core/providers/core_providers.dart';
 import '../../../core/services/location_service.dart';
+import '../../../core/storage/storage_service.dart';
 import '../data/auth_repository.dart';
 import 'auth_state.dart';
 
-/// Riverpod controller that replaces the old GetX `AuthController`.
-/// Access it with `ref.watch(authControllerProvider)` for state and
-/// `ref.read(authControllerProvider.notifier)` for actions.
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  return AuthController(
-    ref.watch(authRepositoryProvider),
-    ref.watch(locationServiceProvider),
-    ref,
-  );
-});
-
-class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repository, this._locationService, this._ref)
-      : super(const AuthState());
+/// GetX controller that replaces the old Riverpod `AuthController`.
+///
+/// Registered as a permanent singleton in `InitialBinding`, so any screen
+/// reaches it with `Get.find<AuthController>()`:
+///   - read state with `controller.state.value` (wrap in `Obx` to rebuild)
+///   - call actions directly, e.g. `controller.verifyOtp(otp)`
+class AuthController extends GetxController {
+  AuthController(this._repository, this._locationService);
 
   final AuthRepository _repository;
   final LocationService _locationService;
-  final Ref _ref;
+
+  /// Reactive auth state — wrap reads in `Obx(() => ...)` to rebuild on
+  /// change, same shape as the old `AuthState` from Riverpod.
+  final Rx<AuthState> state = AuthState().obs;
+
+  /// Last GPS fix captured on the login/registration screens (see
+  /// `captureAndAttachLocation`). Any screen can watch this to build
+  /// "properties near me"-style features without asking for permission
+  /// again.
+  final Rx<LocationResult?> lastKnownLocation = Rx<LocationResult?>(null);
+
+  void _emit(AuthState newState) => state.value = newState;
 
   /// Registers the user, then immediately triggers an OTP so the app can
   /// move to the verification screen. Also opens the location permission
@@ -36,12 +41,12 @@ class AuthController extends StateNotifier<AuthState> {
     String? email,
     String role = AuthState.defaultRole,
   }) async {
-    state = state.copyWith(
+    _emit(state.value.copyWith(
       status: AuthStatus.loading,
       phone: phone,
       role: role,
       clearError: true,
-    );
+    ));
 
     final location = await _captureLocation();
 
@@ -54,15 +59,15 @@ class AuthController extends StateNotifier<AuthState> {
         location: location,
       );
       await _repository.sendOtp(phone: phone, role: role);
-      state = state.copyWith(status: AuthStatus.otpSent, phone: phone, role: role);
+      _emit(state.value.copyWith(status: AuthStatus.otpSent, phone: phone, role: role));
       return true;
     } catch (e) {
-      state = state.copyWith(
+      _emit(state.value.copyWith(
         status: AuthStatus.error,
         phone: phone,
         role: role,
         errorMessage: _messageOf(e),
-      );
+      ));
       return false;
     }
   }
@@ -74,39 +79,39 @@ class AuthController extends StateNotifier<AuthState> {
     required String phone,
     String role = AuthState.defaultRole,
   }) async {
-    state = state.copyWith(
+    _emit(state.value.copyWith(
       status: AuthStatus.loading,
       phone: phone,
       role: role,
       clearError: true,
-    );
+    ));
 
     await _captureLocation();
 
     try {
       await _repository.sendOtp(phone: phone, role: role);
-      state = state.copyWith(status: AuthStatus.otpSent, phone: phone, role: role);
+      _emit(state.value.copyWith(status: AuthStatus.otpSent, phone: phone, role: role));
       return true;
     } catch (e) {
-      state = state.copyWith(
+      _emit(state.value.copyWith(
         status: AuthStatus.error,
         phone: phone,
         role: role,
         errorMessage: _messageOf(e),
-      );
+      ));
       return false;
     }
   }
 
   /// Resends the OTP for whichever phone/role is already in progress.
   Future<bool> resendOtp() async {
-    final currentPhone = state.phone;
+    final currentPhone = state.value.phone;
     if (currentPhone == null) return false;
     try {
-      await _repository.sendOtp(phone: currentPhone, role: state.role);
+      await _repository.sendOtp(phone: currentPhone, role: state.value.role);
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: _messageOf(e));
+      _emit(state.value.copyWith(errorMessage: _messageOf(e)));
       return false;
     }
   }
@@ -116,34 +121,34 @@ class AuthController extends StateNotifier<AuthState> {
   /// it earlier), this makes one last best-effort attempt before the
   /// actual login call goes out.
   Future<bool> verifyOtp(String otp) async {
-    final currentPhone = state.phone;
+    final currentPhone = state.value.phone;
     if (currentPhone == null) return false;
-    state = state.copyWith(status: AuthStatus.loading, clearError: true);
+    _emit(state.value.copyWith(status: AuthStatus.loading, clearError: true));
 
-    var location = state.location;
+    var location = state.value.location;
     location ??= await _captureLocation();
 
     try {
       final response = await _repository.loginWithOtp(
         phone: currentPhone,
         otp: otp,
-        role: state.role,
+        role: state.value.role,
         location: location,
       );
       final data = response['data'] is Map
           ? Map<String, dynamic>.from(response['data'] as Map)
           : null;
-      state = state.copyWith(status: AuthStatus.verified, userData: data);
+      _emit(state.value.copyWith(status: AuthStatus.verified, userData: data));
       return true;
     } catch (e) {
-      state = state.copyWith(status: AuthStatus.error, errorMessage: _messageOf(e));
+      _emit(state.value.copyWith(status: AuthStatus.error, errorMessage: _messageOf(e)));
       return false;
     }
   }
 
   Future<void> logout() async {
     await _repository.logout();
-    state = const AuthState();
+    _emit(const AuthState());
   }
 
   /// Public entry point the OTP screen calls to (re)try capturing location
@@ -157,20 +162,20 @@ class AuthController extends StateNotifier<AuthState> {
   Future<LocationResult?> _captureLocation() async {
     try {
       final location = await _locationService.getCurrentLocation();
-      state = state.copyWith(location: location, clearLocationError: true);
-      _ref.read(lastKnownLocationProvider.notifier).state = location;
+      _emit(state.value.copyWith(location: location, clearLocationError: true));
+      lastKnownLocation.value = location;
       unawaited(
-        _ref.read(storageServiceProvider).saveLastKnownCoordinates(
+        Get.find<StorageService>().saveLastKnownCoordinates(
           latitude: location.latitude,
           longitude: location.longitude,
         ),
       );
       return location;
     } on LocationException catch (e) {
-      state = state.copyWith(locationError: e.message);
+      _emit(state.value.copyWith(locationError: e.message));
       return null;
     } catch (_) {
-      state = state.copyWith(locationError: 'Could not fetch your location.');
+      _emit(state.value.copyWith(locationError: 'Could not fetch your location.'));
       return null;
     }
   }

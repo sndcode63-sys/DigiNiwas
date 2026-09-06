@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
 
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_button.dart';
 
 class ChooseRoleScreen extends StatefulWidget {
   const ChooseRoleScreen({super.key});
@@ -31,7 +32,7 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
     final selected = _selectedRole;
     if (selected == null) return;
 
-    context.push(AppRoutes.registration, extra: {'role': _apiRole[selected]!});
+    Get.toNamed(AppRoutes.registration, arguments: {'role': _apiRole[selected]!});
   }
 
   @override
@@ -186,35 +187,10 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
                                   : const SizedBox.shrink(),
                             ),
                             SizedBox(height: 32.h),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50.h,
-                              child: ElevatedButton(
-                                onPressed: _selectedRole == null ? null : _handleContinue,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  disabledBackgroundColor: const Color(0xFFC9D0D6),
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(26.r),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      'Continue',
-                                      style: TextStyle(
-                                        fontSize: 15.5.sp,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.white,
-                                      ),
-                                    ),
-                                    SizedBox(width: 6.w),
-                                    Icon(Icons.arrow_forward_rounded, color: AppColors.white, size: 18.sp),
-                                  ],
-                                ),
-                              ),
+                            AppButton(
+                              label: 'Continue',
+                              icon: Icons.arrow_forward_rounded,
+                              onPressed: _selectedRole == null ? null : _handleContinue,
                             ),
                           ],
                         ),

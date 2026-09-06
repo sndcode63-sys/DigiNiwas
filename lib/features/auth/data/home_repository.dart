@@ -12,7 +12,6 @@ import '../../../core/models/property_new_listing.dart';
 import '../../../core/network/api_service.dart';
 import '../../../core/utils/app_logger.dart';
 
-/// Thrown by [HomeRepository] so the UI can show a friendly message.
 class HomeFeedException implements Exception {
   HomeFeedException(this.message);
   final String message;
@@ -167,7 +166,6 @@ class HomeRepository {
     }
   }
 
-  /// GET /api/v1/properties/explore-nearby?propertyId=...&radius=...
   Future<ExploreNearbyData> getExploreNearby({
     required String propertyId,
     int? radius,
@@ -187,6 +185,28 @@ class HomeRepository {
       return ExploreNearbyData.fromJson(Map<String, dynamic>.from(data));
     } on DioException catch (e, st) {
       AppLogger.e('Explore nearby request failed', e, st);
+      throw HomeFeedException(_extractMessage(e));
+    }
+  }
+
+  /// GET /properties/:id (Fetch single property details by ID)
+  Future<Map<String, dynamic>?> getPropertyById(String propertyId) async {
+    try {
+      final response = await _apiService.get('${ApiConstants.getPropertyById}/$propertyId');
+      final data = response.data;
+
+      if (data is Map) {
+        if (data['success'] == false) {
+          throw HomeFeedException(_messageOrFallback(data, 'Could not load property details.'));
+        }
+        if (data.containsKey('data') && data['data'] is Map) {
+          return Map<String, dynamic>.from(data['data']);
+        }
+        return Map<String, dynamic>.from(data);
+      }
+      return null;
+    } on DioException catch (e, st) {
+      AppLogger.e('Fetch property by ID request failed', e, st);
       throw HomeFeedException(_extractMessage(e));
     }
   }
