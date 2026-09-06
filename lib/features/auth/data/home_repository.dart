@@ -1,7 +1,14 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/models/buer_dashboard_model.dart';
+import '../../../core/models/explore_property.dart';
 import '../../../core/models/home_feed_model.dart';
+import '../../../core/models/near_by_agent.dart';
+import '../../../core/models/popular_property.dart';
+import '../../../core/models/propertt_category_filter.dart';
+import '../../../core/models/property_boosted.dart';
+import '../../../core/models/property_new_listing.dart';
 import '../../../core/network/api_service.dart';
 import '../../../core/utils/app_logger.dart';
 
@@ -20,13 +27,7 @@ class HomeRepository {
   final ApiService _apiService;
 
   /// GET /api/v1/home/feed
-  /// The Bearer token is attached automatically by [ApiService]'s
-  /// interceptor (it reads whatever was saved at login) — no need to
-  /// pass it manually here.
-  ///
-  /// If [latitude]/[longitude] are omitted, the backend falls back to
-  /// the buyer's saved location.
-  Future<HomeFeedResponse> getHomeFeed({
+  Future<HomeFeedModel> getHomeFeed({
     double? latitude,
     double? longitude,
     String? city,
@@ -48,30 +49,118 @@ class HomeRepository {
         );
       }
       AppLogger.i('Home feed loaded');
-      return HomeFeedResponse.fromJson(Map<String, dynamic>.from(data));
+      return HomeFeedModel.fromJson(Map<String, dynamic>.from(data));
     } on DioException catch (e, st) {
       AppLogger.e('Home feed request failed', e, st);
       throw HomeFeedException(_extractMessage(e));
     }
   }
 
+  /// GET /api/v1/user/dashboard-header
+  Future<BuerDashboardModel> getDashboardHeader() async {
+    try {
+      final response = await _apiService.get(ApiConstants.dashboardHeader);
+      final data = response.data;
+      if (data is! Map || data['success'] == false) {
+        throw HomeFeedException(_messageOrFallback(data, 'Could not load dashboard header.'));
+      }
+      final innerData = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : Map<String, dynamic>.from(data);
+      return BuerDashboardModel.fromJson(innerData);
+    } on DioException catch (e, st) {
+      AppLogger.e('Dashboard header request failed', e, st);
+      throw HomeFeedException(_extractMessage(e));
+    }
+  }
+
+  /// GET /api/v1/locations/popular
+  Future<PopularProperty> getPopularLocations() async {
+    try {
+      final response = await _apiService.get(ApiConstants.popularLocations);
+      final data = response.data;
+      if (data is! Map || data['success'] == false) {
+        throw HomeFeedException(_messageOrFallback(data, 'Could not load popular locations.'));
+      }
+      final innerData = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : Map<String, dynamic>.from(data);
+      return PopularProperty.fromJson(innerData);
+    } on DioException catch (e, st) {
+      AppLogger.e('Popular locations request failed', e, st);
+      throw HomeFeedException(_extractMessage(e));
+    }
+  }
+
+  /// GET /api/v1/properties/categories
+  Future<ProperttCategoryFilter> getPropertyCategoryFilter({
+    String? tab,
+    String? category,
+    double? lat,
+    double? lng,
+    String? city,
+  }) async {
+    try {
+      final response = await _apiService.get(
+        ApiConstants.propertyCategories,
+        queryParameters: {
+          if (tab != null && tab.isNotEmpty) 'tab': tab,
+          if (category != null && category.isNotEmpty) 'category': category,
+          if (lat != null) 'lat': lat,
+          if (lng != null) 'lng': lng,
+          if (city != null && city.isNotEmpty) 'city': city,
+        },
+      );
+      final data = response.data;
+      if (data is! Map || data['success'] == false) {
+        throw HomeFeedException(_messageOrFallback(data, 'Could not load categories.'));
+      }
+      final innerData = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : Map<String, dynamic>.from(data);
+      return ProperttCategoryFilter.fromJson(innerData);
+    } on DioException catch (e, st) {
+      AppLogger.e('Property categories request failed', e, st);
+      throw HomeFeedException(_extractMessage(e));
+    }
+  }
+
   /// GET /api/v1/properties/boosted
-  Future<List<HomeProperty>> getBoostedProperties() =>
-      _getPropertyList(ApiConstants.boostedProperties, fallback: 'Could not load boosted properties.');
+  Future<PropertyBoosted> getBoostedPropertiesList() async {
+    try {
+      final response = await _apiService.get(ApiConstants.boostedProperties);
+      final data = response.data;
+      if (data is! Map || data['success'] == false) {
+        throw HomeFeedException(_messageOrFallback(data, 'Could not load boosted properties.'));
+      }
+      final innerData = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : Map<String, dynamic>.from(data);
+      return PropertyBoosted.fromJson(innerData);
+    } on DioException catch (e, st) {
+      AppLogger.e('Boosted properties request failed', e, st);
+      throw HomeFeedException(_extractMessage(e));
+    }
+  }
 
   /// GET /api/v1/properties/new-listings
-  Future<List<HomeProperty>> getNewListings() =>
-      _getPropertyList(ApiConstants.newListings, fallback: 'Could not load new listings.');
+  Future<PropertyNewListing> getNewListingsList() async {
+    try {
+      final response = await _apiService.get(ApiConstants.newListings);
+      final data = response.data;
+      if (data is! Map || data['success'] == false) {
+        throw HomeFeedException(_messageOrFallback(data, 'Could not load new listings.'));
+      }
+      final innerData = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : Map<String, dynamic>.from(data);
+      return PropertyNewListing.fromJson(innerData);
+    } on DioException catch (e, st) {
+      AppLogger.e('New listings request failed', e, st);
+      throw HomeFeedException(_extractMessage(e));
+    }
+  }
 
   /// GET /api/v1/agents/nearby
-  Future<List<NearbyAgent>> getNearbyAgents() async {
+  Future<NearByAgent> getNearbyAgentsList() async {
     try {
       final response = await _apiService.get(ApiConstants.nearbyAgents);
       final data = response.data;
       if (data is! Map || data['success'] == false) {
         throw HomeFeedException(_messageOrFallback(data, 'Could not load nearby agents.'));
       }
-      return parseNearbyAgents(Map<String, dynamic>.from(data));
+      final innerData = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : Map<String, dynamic>.from(data);
+      return NearByAgent.fromJson(innerData);
     } on DioException catch (e, st) {
       AppLogger.e('Nearby agents request failed', e, st);
       throw HomeFeedException(_extractMessage(e));
@@ -79,7 +168,7 @@ class HomeRepository {
   }
 
   /// GET /api/v1/properties/explore-nearby?propertyId=...&radius=...
-  Future<ExploreNearbyResponse> getExploreNearby({
+  Future<ExploreNearbyData> getExploreNearby({
     required String propertyId,
     int? radius,
   }) async {
@@ -95,41 +184,9 @@ class HomeRepository {
       if (data is! Map || data['success'] == false) {
         throw HomeFeedException(_messageOrFallback(data, 'Could not load nearby places.'));
       }
-      return ExploreNearbyResponse.fromJson(Map<String, dynamic>.from(data));
+      return ExploreNearbyData.fromJson(Map<String, dynamic>.from(data));
     } on DioException catch (e, st) {
       AppLogger.e('Explore nearby request failed', e, st);
-      throw HomeFeedException(_extractMessage(e));
-    }
-  }
-
-  /// GET /api/v1/properties/categories?tab=Buy|Rent|Plot|Commercial
-  Future<PropertyCategoriesResponse> getPropertyCategories({String? tab}) async {
-    try {
-      final response = await _apiService.get(
-        ApiConstants.propertyCategories,
-        queryParameters: {if (tab != null && tab.isNotEmpty) 'tab': tab},
-      );
-      final data = response.data;
-      if (data is! Map || data['success'] == false) {
-        throw HomeFeedException(_messageOrFallback(data, 'Could not load categories.'));
-      }
-      return PropertyCategoriesResponse.fromJson(Map<String, dynamic>.from(data));
-    } on DioException catch (e, st) {
-      AppLogger.e('Property categories request failed', e, st);
-      throw HomeFeedException(_extractMessage(e));
-    }
-  }
-
-  Future<List<HomeProperty>> _getPropertyList(String path, {required String fallback}) async {
-    try {
-      final response = await _apiService.get(path);
-      final data = response.data;
-      if (data is! Map || data['success'] == false) {
-        throw HomeFeedException(_messageOrFallback(data, fallback));
-      }
-      return parsePropertyList(Map<String, dynamic>.from(data));
-    } on DioException catch (e, st) {
-      AppLogger.e('$path request failed', e, st);
       throw HomeFeedException(_extractMessage(e));
     }
   }
@@ -155,6 +212,6 @@ class HomeRepository {
     if (e.type == DioExceptionType.connectionError) {
       return 'Could not connect to the server. Please check your internet connection.';
     }
-    return 'Could not load home feed. Please try again.';
+    return 'Could not load data. Please try again.';
   }
 }

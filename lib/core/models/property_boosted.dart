@@ -1,12 +1,12 @@
 
-// class BuyerDashboard {
+// class PropertyBoosted {
 //   bool? success;
 //   String? message;
 //   Data? data;
 //
-//   BuyerDashboard({this.success, this.message, this.data});
+//   PropertyBoosted({this.success, this.message, this.data});
 //
-//   BuyerDashboard.fromJson(Map<String, dynamic> json) {
+//   PropertyBoosted.fromJson(Map<String, dynamic> json) {
 //     if(json["success"] is bool) {
 //       success = json["success"];
 //     }
@@ -29,45 +29,33 @@
 //   }
 // }
 
-class BuerDashboardModel {
-  String? greeting;
-  User? user;
+class PropertyBoosted {
   Location? location;
-  int? unreadNotificationsCount;
-  List<dynamic>? notifications;
+  int? count;
+  List<dynamic>? properties;
 
-  BuerDashboardModel({this.greeting, this.user, this.location, this.unreadNotificationsCount, this.notifications});
+  PropertyBoosted({this.location, this.count, this.properties});
 
-  BuerDashboardModel.fromJson(Map<String, dynamic> json) {
-    if(json["greeting"] is String) {
-      greeting = json["greeting"];
-    }
-    if(json["user"] is Map) {
-      user = json["user"] == null ? null : User.fromJson(json["user"]);
-    }
+  PropertyBoosted.fromJson(Map<String, dynamic> json) {
     if(json["location"] is Map) {
       location = json["location"] == null ? null : Location.fromJson(json["location"]);
     }
-    if(json["unreadNotificationsCount"] is int) {
-      unreadNotificationsCount = json["unreadNotificationsCount"];
+    if(json["count"] is int) {
+      count = json["count"];
     }
-    if(json["notifications"] is List) {
-      notifications = json["notifications"] ?? [];
+    if(json["properties"] is List) {
+      properties = json["properties"] ?? [];
     }
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> _data = <String, dynamic>{};
-    _data["greeting"] = greeting;
-    if(user != null) {
-      _data["user"] = user?.toJson();
-    }
     if(location != null) {
       _data["location"] = location?.toJson();
     }
-    _data["unreadNotificationsCount"] = unreadNotificationsCount;
-    if(notifications != null) {
-      _data["notifications"] = notifications;
+    _data["count"] = count;
+    if(properties != null) {
+      _data["properties"] = properties;
     }
     return _data;
   }
@@ -113,39 +101,6 @@ class Location {
     _data["state"] = state;
     _data["country"] = country;
     _data["address"] = address;
-    return _data;
-  }
-}
-
-class User {
-  String? id;
-  String? buyerId;
-  String? name;
-  String? avatar;
-
-  User({this.id, this.buyerId, this.name, this.avatar});
-
-  User.fromJson(Map<String, dynamic> json) {
-    if(json["_id"] is String) {
-      id = json["_id"];
-    }
-    if(json["buyerId"] is String) {
-      buyerId = json["buyerId"];
-    }
-    if(json["name"] is String) {
-      name = json["name"];
-    }
-    if(json["avatar"] is String) {
-      avatar = json["avatar"];
-    }
-  }
-
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> _data = <String, dynamic>{};
-    _data["_id"] = id;
-    _data["buyerId"] = buyerId;
-    _data["name"] = name;
-    _data["avatar"] = avatar;
     return _data;
   }
 }

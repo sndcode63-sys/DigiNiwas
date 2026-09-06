@@ -26,20 +26,14 @@ class LocationResult {
   final String country;
   final String address;
 
-  /// Matches the backend's expected GeoJSON-style shape:
-  /// `{ coordinates: { type: "Point", coordinates: [lng, lat] }, city, state, country, address }`
-  /// NOTE: GeoJSON coordinate order is [longitude, latitude], not the
-  /// other way round — that mismatch is what was causing the backend to
-  /// silently store [0, 0].
+  /// Matches the backend's actual expected shape for the `location` field:
+  /// `{ "location": { "longitude": ..., "latitude": ... } }`
+  /// (flat lng/lat — NOT the GeoJSON `coordinates.coordinates` array).
+  /// Sending the old nested GeoJSON shape was why the backend response
+  /// wasn't returning location back.
   Map<String, dynamic> toLocationPayload() => {
-    'coordinates': {
-      'type': 'Point',
-      'coordinates': [longitude, latitude],
-    },
-    'city': city,
-    'state': state,
-    'country': country.isEmpty ? 'India' : country,
-    'address': address,
+    'longitude': longitude,
+    'latitude': latitude,
   };
 
   Map<String, dynamic> toJson() => {
@@ -136,28 +130,28 @@ class LocationService {
     );
   }
 
-  /// Best-effort reverse geocode. Returns null (never throws) if the
-  /// device/platform can't resolve a placemark — city/state/address are
-  /// a nice-to-have, not something that should block login/registration.
-  // Future<_Placemark?> _reverseGeocode(double latitude, double longitude) async {
-  //   try {
-  //     final placemarks = await placemarkFromCoordinates(latitude, longitude);
-  //     if (placemarks.isEmpty) return null;
-  //     final p = placemarks.first;
-  //     final addressLine = [p.street, p.subLocality, p.locality]
-  //         .where((s) => s != null && s.trim().isNotEmpty)
-  //         .join(', ');
-  //     return _Placemark(
-  //       city: p.locality ?? p.subAdministrativeArea ?? '',
-  //       state: p.administrativeArea ?? '',
-  //       country: p.country ?? '',
-  //       address: addressLine,
-  //     );
-  //   } catch (_) {
-  //     // No network, unsupported platform, geocoding API unavailable, etc.
-  //     return null;
-  //   }
-  // }
+/// Best-effort reverse geocode. Returns null (never throws) if the
+/// device/platform can't resolve a placemark — city/state/address are
+/// a nice-to-have, not something that should block login/registration.
+// Future<_Placemark?> _reverseGeocode(double latitude, double longitude) async {
+//   try {
+//     final placemarks = await placemarkFromCoordinates(latitude, longitude);
+//     if (placemarks.isEmpty) return null;
+//     final p = placemarks.first;
+//     final addressLine = [p.street, p.subLocality, p.locality]
+//         .where((s) => s != null && s.trim().isNotEmpty)
+//         .join(', ');
+//     return _Placemark(
+//       city: p.locality ?? p.subAdministrativeArea ?? '',
+//       state: p.administrativeArea ?? '',
+//       country: p.country ?? '',
+//       address: addressLine,
+//     );
+//   } catch (_) {
+//     // No network, unsupported platform, geocoding API unavailable, etc.
+//     return null;
+//   }
+// }
 }
 
 class _Placemark {

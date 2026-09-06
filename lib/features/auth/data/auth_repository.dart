@@ -50,13 +50,8 @@ class AuthRepository {
           if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
           'password': _generatePassword(phone),
           'role': role,
-          // Nested shape matching the backend's GeoJSON-style schema —
-          // this is what actually gets saved into `location.coordinates`.
+          // Backend expects: { "location": { "longitude": ..., "latitude": ... } }
           if (location != null) 'location': location.toLocationPayload(),
-          // Also send flat lat/lng in case any other backend code path
-          // reads these directly; harmless if ignored.
-          if (location != null) 'latitude': location.latitude,
-          if (location != null) 'longitude': location.longitude,
         },
       );
       final data = _asMap(response.data);
@@ -106,9 +101,8 @@ class AuthRepository {
           'phone': phone,
           'otp': otp,
           'role': role,
+          // Backend expects: { "location": { "longitude": ..., "latitude": ... } }
           if (location != null) 'location': location.toLocationPayload(),
-          if (location != null) 'latitude': location.latitude,
-          if (location != null) 'longitude': location.longitude,
         },
       );
       final data = _asMap(response.data);
