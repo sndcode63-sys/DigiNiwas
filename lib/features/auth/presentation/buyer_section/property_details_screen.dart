@@ -6,7 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
-import 'package:share_plus/share_plus.dart'; // 👈 Real device sharing package
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/routes/app_routes.dart';
@@ -26,22 +26,68 @@ class PropertyDetailsScreen extends StatefulWidget {
 class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   bool _isFavorite = false;
 
+  // ---------------------------------------------------------------------
+  // DYNAMIC DATA GETTERS — read straight off `widget.property` using the
+  // REAL keys produced by the model's toJson() (title, locality, city,
+  // bedrooms, furnishing, price, images: [{url: ...}]), with safe fallback
+  // to older key names / hardcoded defaults so nothing ever crashes.
+  // ---------------------------------------------------------------------
+
+  String get _name =>
+      (widget.property['title'] ?? widget.property['name'] ?? 'Celestial Heights').toString();
+
+  String get _imageUrl {
+    final images = widget.property['images'];
+    if (images is List && images.isNotEmpty) {
+      final first = images.first;
+      if (first is Map && first['url'] != null) return first['url'].toString();
+      if (first is String && first.isNotEmpty) return first;
+    }
+    final single = widget.property['image'];
+    if (single != null && single.toString().isNotEmpty) return single.toString();
+    return 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop&q=80';
+  }
+
+  String get _address {
+    final locality = widget.property['locality'];
+    final city = widget.property['city'];
+    final parts = [locality, city].where((e) => e != null && e.toString().trim().isNotEmpty).toList();
+    if (parts.isNotEmpty) return parts.join(', ');
+    return (widget.property['address'] ?? 'Bopal, Ahmedabad').toString();
+  }
+
+  String get _priceDisplay {
+    final price = widget.property['price'];
+    if (price != null) return '₹ $price';
+    return (widget.property['priceLabel'] ?? '₹85 L').toString();
+  }
+
+  String get _bhkLabel {
+    final bedrooms = widget.property['bedrooms'];
+    if (bedrooms != null) return '$bedrooms BHK';
+    return (widget.property['bhk'] ?? '2 BHK').toString();
+  }
+
+  String get _furnishing =>
+      (widget.property['furnishing'] ?? widget.property['status'] ?? 'Ready to Move').toString();
+
+  String get _sqft => (widget.property['sqft'] ?? widget.property['area'] ?? '1,240 sq.ft').toString();
+
   void _open360View(BuildContext context) {
     context.push(
       AppRoutes.panoramaViewer,
       extra: {
         'imageUrl': widget.property['panorama_image'] ??
             'https://images.unsplash.com/photo-1557971370-e7298ee473fb?w=1600&auto=format&fit=crop&q=80',
-        'title': widget.property['name'] ?? 'Celestial Heights',
+        'title': _name,
       },
     );
   }
 
-  // Helper function to launch WhatsApp safely
   Future<void> _launchWhatsApp(String phone) async {
     final String cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
     final Uri url = Uri.parse(
-        "https://wa.me/$cleanPhone?text=Hello, I am interested in ${widget.property['name'] ?? 'this property'}.");
+        "https://wa.me/$cleanPhone?text=Hello, I am interested in $_name.");
 
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -50,7 +96,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     }
   }
 
-  // Helper function to make a phone call
   Future<void> _makePhoneCall(String phone) async {
     final Uri url = Uri.parse("tel:$phone");
     if (await canLaunchUrl(url)) {
@@ -60,11 +105,11 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     }
   }
 
-  // Real Native Share Method
+  // Real Native Share Method — FIXED: propertyPrice ab sahi field padhta hai
   Future<void> _shareProperty() async {
-    final propertyName = widget.property['name'] ?? 'Property';
-    final propertyPrice = widget.property['price'] ?? '';
-    final propertyAddress = widget.property['address'] ?? '';
+    final propertyName = _name;
+    final propertyPrice = _priceDisplay; // ✅ pehle poora `widget.property` map assign ho raha tha
+    final propertyAddress = _address;
 
     await Share.share(
       'Check out this verified property on DigiNiwas!\n\n'
@@ -155,8 +200,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8.r),
                       child: Image.network(
-                        widget.property['image'] ??
-                            'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop&q=80',
+                        _imageUrl,
                         width: 44.w,
                         height: 44.w,
                         fit: BoxFit.cover,
@@ -174,7 +218,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.property['name'] ?? 'Celestial Heights',
+                            _name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
@@ -190,7 +234,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                               SizedBox(width: 2.w),
                               Expanded(
                                 child: Text(
-                                  widget.property['address'] ?? 'Bopal, Ahmedabad',
+                                  _address,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.poppins(
@@ -205,7 +249,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                       ),
                     ),
                     Text(
-                      widget.property['price'] ?? '₹85 L',
+                      _priceDisplay,
                       style: GoogleFonts.poppins(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w800,
@@ -321,7 +365,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               ),
               SizedBox(height: 16.h),
 
-              // WhatsApp Chat Button Trigger
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -350,7 +393,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               ),
               SizedBox(height: 8.h),
 
-              // Direct Call Button Trigger
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -446,7 +488,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           ),
         ),
         actions: [
-          // Favorite / Dil Toggle Button with dynamic message
           IconButton(
             icon: Icon(
               _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
@@ -469,8 +510,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               );
             },
           ),
-
-          // Real Native Share Button
           IconButton(
             icon: Icon(Icons.share_outlined, color: const Color(0xFF0F172A), size: 20.sp),
             onPressed: _shareProperty,
@@ -487,8 +526,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
               clipBehavior: Clip.none,
               children: [
                 Image.network(
-                  widget.property['image'] ??
-                      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop&q=80',
+                  _imageUrl,
                   width: double.infinity,
                   height: 250.h,
                   fit: BoxFit.cover,
@@ -588,7 +626,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.property['name'] ?? 'Celestial Heights',
+                              _name,
                               style: GoogleFonts.poppins(
                                 fontSize: 19.sp,
                                 fontWeight: FontWeight.w700,
@@ -602,7 +640,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                                 SizedBox(width: 3.w),
                                 Expanded(
                                   child: Text(
-                                    widget.property['address'] ?? 'Bopal, Ahmedabad',
+                                    _address,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.poppins(
@@ -618,7 +656,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                       ),
                       SizedBox(width: 10.w),
                       Text(
-                        widget.property['price'] ?? '₹85 L',
+                        _priceDisplay,
                         style: GoogleFonts.poppins(
                           fontSize: 22.sp,
                           fontWeight: FontWeight.w800,
@@ -629,7 +667,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                   ),
                   SizedBox(height: 8.h),
                   Text(
-                    '${widget.property['bhk'] ?? '2 BHK'}  •  ${widget.property['sqft'] ?? '1,240 sq.ft'}  •  ${widget.property['status'] ?? 'Ready to Move'}',
+                    '$_bhkLabel  •  $_sqft  •  $_furnishing',
                     style: GoogleFonts.poppins(
                       fontSize: 11.5.sp,
                       color: const Color(0xFF64748B),
@@ -1094,6 +1132,7 @@ class PanoramaViewerScreen extends StatelessWidget {
               ),
             ),
           ),
+
         ],
       ),
     );
