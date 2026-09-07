@@ -18,8 +18,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/utils/shimmer.dart';
 import '../../../../core/widgets/app_image.dart';
+import '../../data/view_all_repository.dart';
 import 'exprole_name.dart';
 import 'niwas_ai_section.dart';
+import 'view_all_screen.dart';
 
 // ---------------------------------------------------------------------
 // SHARED AMENITY MARKER STYLING
@@ -158,7 +160,21 @@ class HomeScreen extends StatelessWidget {
             SizedBox(height: 14.h),
             _buildSectionTitle(
               controller.selectedCategoryTab.value != null ? '${controller.selectedCategoryTab.value!} Properties' : 'Recommended For You',
-              showViewAll: controller.selectedCategoryTab.value == null,
+              showViewAll: true,
+              onViewAll: () {
+                final title = controller.selectedCategoryTab.value != null
+                    ? '${controller.selectedCategoryTab.value!} Properties'
+                    : 'Recommended For You';
+                final raw = controller.selectedCategoryTab.value != null
+                    ? (controller.categoryFilterData.value?.properties ?? [])
+                    : (controller.homeFeed.value?.recommendedProperties ?? []);
+                Get.to(() => ViewAllScreen(
+                      title: title,
+                      type: ViewAllType.property,
+                      propertyItems: _mapPropertyLikeList(raw),
+                      controller: controller,
+                    ));
+              },
             ),
             SizedBox(height: 8.h),
             _buildRecommendedCards(),
@@ -171,7 +187,20 @@ class HomeScreen extends StatelessWidget {
             SizedBox(height: 8.h),
             _buildExploreMap(context),
             SizedBox(height: 18.h),
-            _buildSectionTitle('New Listings', showViewAll: true),
+            _buildSectionTitle(
+              'New Listings',
+              showViewAll: true,
+              onViewAll: () {
+                Get.to(() => ViewAllScreen(
+                      title: 'New Listings',
+                      type: ViewAllType.property,
+                      section: ViewAllSection.newListings,
+                      controller: controller,
+                      badgeLabel: 'New',
+                      badgeColor: const Color(0xFF007A5E),
+                    ));
+              },
+            ),
             SizedBox(height: 8.h),
             _buildNewListings(),
             SizedBox(height: 18.h),
@@ -179,11 +208,33 @@ class HomeScreen extends StatelessWidget {
               controller.homeFeed.value?.location?.city != null && controller.homeFeed.value!.location!.city!.isNotEmpty
                   ? 'Popular near ${controller.homeFeed.value!.location!.city}'
                   : 'Popular Near You',
+              showViewAll: true,
+              onViewAll: () {
+                final title = controller.homeFeed.value?.location?.city != null && controller.homeFeed.value!.location!.city!.isNotEmpty
+                    ? 'Popular near ${controller.homeFeed.value!.location!.city}'
+                    : 'Popular Near You';
+                Get.to(() => ViewAllScreen(
+                      title: title,
+                      type: ViewAllType.popularArea,
+                      section: ViewAllSection.popularAreas,
+                    ));
+              },
             ),
             SizedBox(height: 8.h),
             _buildPopularAreas(),
             SizedBox(height: 18.h),
-            _buildSectionTitle('Verified Agents Near You'),
+            _buildSectionTitle(
+              'Verified Agents Near You',
+              showViewAll: true,
+              onViewAll: () {
+                Get.to(() => ViewAllScreen(
+                      title: 'Verified Agents Near You',
+                      type: ViewAllType.agent,
+                      agentItems: controller.homeFeed.value?.agents ?? [],
+                      onAgentTap: _showAgentProfileBottomSheet,
+                    ));
+              },
+            ),
             SizedBox(height: 8.h),
             _buildVerifiedAgent(),
             SizedBox(height: 22.h),
@@ -193,6 +244,30 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Normalizes any property-like list (recommended / boosted / new listings
+  /// / category-filtered) into plain maps so the "View All" screen doesn't
+  /// need to know about the different model classes each section uses.
+  List<Map<String, dynamic>> _mapPropertyLikeList(List items) {
+    return items.map<Map<String, dynamic>>((p) {
+      final imgs = <String>[];
+      if (p.images != null) {
+        for (var img in p.images) {
+          if (img.url != null) imgs.add(img.url as String);
+        }
+      }
+      return {
+        'title': p.title,
+        'locality': p.locality,
+        'city': p.city,
+        'bedrooms': p.bedrooms,
+        'furnishing': p.furnishing,
+        'price': p.price,
+        'images': imgs,
+        'json': p.toJson(),
+      };
+    }).toList();
   }
 
   Widget _buildFeedErrorBanner() {
@@ -478,7 +553,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(String title, {bool showViewAll = false}) {
+  Widget _buildSectionTitle(String title, {bool showViewAll = false, VoidCallback? onViewAll}) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: Row(
@@ -496,7 +571,7 @@ class HomeScreen extends StatelessWidget {
           ),
           if (showViewAll)
             GestureDetector(
-              onTap: () {},
+              onTap: onViewAll ?? () {},
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -717,17 +792,45 @@ class HomeScreen extends StatelessWidget {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 20.w),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.bolt_rounded, color: const Color(0xFFE5A000), size: 22.sp),
-              SizedBox(width: 4.w),
-              Text(
-                'Boosted Properties',
-                style: GoogleFonts.poppins(
-                  fontSize: 17.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0F172A),
-                  letterSpacing: -0.3,
+              Row(
+                children: [
+                  Icon(Icons.bolt_rounded, color: const Color(0xFFE5A000), size: 22.sp),
+                  SizedBox(width: 4.w),
+                  Text(
+                    'Boosted Properties',
+                    style: GoogleFonts.poppins(
+                      fontSize: 17.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                onTap: () {
+                  Get.to(() => ViewAllScreen(
+                        title: 'Boosted Properties',
+                        type: ViewAllType.property,
+                        section: ViewAllSection.boosted,
+                        controller: controller,
+                        badgeLabel: 'Boosted',
+                        badgeColor: const Color(0xFFE5A000),
+                      ));
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View All',
+                      style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
+                    ),
+                    SizedBox(width: 2.w),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 10.sp, color: const Color(0xFF007A5E)),
+                  ],
                 ),
               ),
             ],

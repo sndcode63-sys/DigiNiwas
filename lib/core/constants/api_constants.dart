@@ -121,8 +121,95 @@ class ApiConstants {
   static const String getVisitById =
       '/visits';
 
+  // ==================== Seller Endpoints ====================
+  // Backend source: routes/Seller/sellerRoutes.js ->
+  // controllers/Seller/sellerApplicationController.js /
+  // sellerAuthController.js / sellerController.js
 
+  // Create seller KYC application (multipart/form-data; file fields:
+  // idBack, idFront)
+  // POST /sellers/applications/register
+  static const String registerSellerApplication =
+      '/sellers/applications/register';
 
+  // Verify seller application email OTP
+  // POST /sellers/applications/verify-email
+  static const String verifySellerEmailOtp =
+      '/sellers/applications/verify-email';
+
+  // Verify seller application phone OTP
+  // POST /sellers/applications/verify-phone
+  static const String verifySellerPhoneOtp =
+      '/sellers/applications/verify-phone';
+
+  // Resend seller application email OTP
+  // POST /sellers/applications/resend-email-otp
+  static const String resendSellerEmailOtp =
+      '/sellers/applications/resend-email-otp';
+
+  // Resend seller application phone OTP
+  // POST /sellers/applications/resend-phone-otp
+  static const String resendSellerPhoneOtp =
+      '/sellers/applications/resend-phone-otp';
+
+  // Seller login with email/password
+  // POST /sellers/auth/login
+  static const String sellerLogin = '/sellers/auth/login';
+
+  // Send seller login OTP
+  // POST /sellers/auth/send-login-otp
+  static const String sendSellerLoginOtp =
+      '/sellers/auth/send-login-otp';
+
+  // Seller login with OTP
+  // POST /sellers/auth/login-with-otp
+  static const String sellerLoginWithOtp =
+      '/sellers/auth/login-with-otp';
+
+  // Change seller password
+  // PATCH /sellers/auth/change-password
+  static const String changeSellerPassword =
+      '/sellers/auth/change-password';
+
+  // Fetch seller applications (query params: search, status)
+  // GET /sellers/applications
+  static const String getSellerApplications =
+      '/sellers/applications';
+
+  // Fetch seller application by id
+  // GET /sellers/applications/:id
+  static const String getSellerApplicationById =
+      '/sellers/applications';
+
+  // Review (approve/reject) seller application
+  // PATCH /sellers/applications/:id/review
+  static const String reviewSellerApplication =
+      '/sellers/applications';
+
+  // Fetch all sellers (query params: city, search, verified)
+  // GET /sellers
+  static const String getAllSellers = '/sellers';
+
+  // Fetch seller summary
+  // GET /sellers/:id/summary
+  static const String getSellerSummary = '/sellers';
+
+  // Fetch seller properties
+  // GET /sellers/:id/properties
+  static const String getSellerProperties = '/sellers';
+
+  // Fetch seller property by id
+  // GET /sellers/:sellerId/properties/:propertyId
+  static const String getSellerPropertyById = '/sellers';
+
+  // Verify / suspend seller account
+  // PATCH /sellers/:id/verify
+  static const String verifySeller = '/sellers';
+
+  // Fetch seller by id (full detail: seller, propertyStats,
+  // assignedPartners, properties)
+  // GET /sellers/:id
+  static const String getSellerById = '/sellers';
 
   // ==================== Timeout ====================
   static const int connectTimeout = 60000;
