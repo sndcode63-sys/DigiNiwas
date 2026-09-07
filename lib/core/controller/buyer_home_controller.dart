@@ -5,11 +5,7 @@ import 'package:get/get.dart';
 import '../../../../core/models/buer_dashboard_model.dart';
 import '../../../../core/models/explore_property.dart';
 import '../../../../core/models/home_feed_model.dart';
-import '../../../../core/models/near_by_agent.dart';
-import '../../../../core/models/popular_property.dart';
 import '../../../../core/models/propertt_category_filter.dart';
-import '../../../../core/models/property_boosted.dart';
-import '../../../../core/models/property_new_listing.dart';
 import '../../../../core/network/api_service.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/constants/api_constants.dart';
@@ -37,11 +33,7 @@ class BuyerHomeController extends GetxController {
   // Data returned by each API endpoint. `Rxn<T>` = nullable reactive value.
   final Rxn<HomeFeedModel> homeFeed = Rxn<HomeFeedModel>();
   final Rxn<BuerDashboardModel> dashboardHeader = Rxn<BuerDashboardModel>();
-  final Rxn<PopularProperty> popularLocationsData = Rxn<PopularProperty>();
   final Rxn<ProperttCategoryFilter> categoryFilterData = Rxn<ProperttCategoryFilter>();
-  final Rxn<PropertyBoosted> boostedData = Rxn<PropertyBoosted>();
-  final Rxn<PropertyNewListing> newListingsData = Rxn<PropertyNewListing>();
-  final Rxn<NearByAgent> agentsData = Rxn<NearByAgent>();
   final Rxn<ExploreNearbyData> exploreNearby = Rxn<ExploreNearbyData>();
 
   // Saved properties reactive state
@@ -52,12 +44,12 @@ class BuyerHomeController extends GetxController {
 
   // Independent loading flags — each secondary section loads on its own.
   final RxBool dashboardLoading = true.obs;
-  final RxBool popularLoading = true.obs;
   final RxBool categoryFilterLoading = true.obs;
-  final RxBool boostedLoading = true.obs;
-  final RxBool newListingsLoading = true.obs;
-  final RxBool agentsLoading = true.obs;
   final RxBool exploreLoading = true.obs;
+
+  // NOTE: boosted / newListings / popularAreas / agents — ye alag APIs se
+  // nahi, sirf `/home/feed` (loadHomeFeed -> homeFeed) se aate hain. UI in
+  // sections ke liye `isLoading` (home-feed ka loading state) use karti hai.
 
   /// Search radius (in meters) used for the Explore Nearby map. Changing
   /// this from the full-screen map re-fetches markers at the new radius.
@@ -173,14 +165,13 @@ class BuyerHomeController extends GetxController {
     }
   }
 
-  /// Kicks off all secondary API calls independently (in parallel).
+  /// Kicks off remaining secondary API calls independently (in parallel).
+  /// Boosted / new-listings / popular-areas / nearby-agents ab is function
+  /// se call nahi hote — woh sab `homeFeed` (loadHomeFeed) se hi milte hain,
+  /// taaki UI aur terminal ka data hamesha same/single-source rahe.
   void loadAllApiSections() {
     loadDashboardHeader();
-    loadPopularLocations();
     loadCategoryFilter();
-    loadBoostedProperties();
-    loadNewListings();
-    loadNearbyAgents();
   }
 
   /// 2. GET /api/v1/user/dashboard-header
@@ -198,17 +189,6 @@ class BuyerHomeController extends GetxController {
     }
   }
 
-  /// 3. GET /api/v1/locations/popular
-  Future<void> loadPopularLocations() async {
-    popularLoading.value = true;
-    try {
-      popularLocationsData.value = await _homeRepository.getPopularLocations();
-      popularLoading.value = false;
-    } catch (_) {
-      popularLoading.value = false;
-    }
-  }
-
   /// 4. GET /api/v1/properties/categories
   Future<void> loadCategoryFilter({String? tab}) async {
     categoryFilterLoading.value = true;
@@ -223,39 +203,6 @@ class BuyerHomeController extends GetxController {
 
   void clearCategoryFilter() {
     selectedCategoryTab.value = null;
-  }
-
-  /// 5. GET /api/v1/properties/boosted
-  Future<void> loadBoostedProperties() async {
-    boostedLoading.value = true;
-    try {
-      boostedData.value = await _homeRepository.getBoostedPropertiesList();
-      boostedLoading.value = false;
-    } catch (_) {
-      boostedLoading.value = false;
-    }
-  }
-
-  /// 6. GET /api/v1/properties/new-listings
-  Future<void> loadNewListings() async {
-    newListingsLoading.value = true;
-    try {
-      newListingsData.value = await _homeRepository.getNewListingsList();
-      newListingsLoading.value = false;
-    } catch (_) {
-      newListingsLoading.value = false;
-    }
-  }
-
-  /// 7. GET /api/v1/agents/nearby
-  Future<void> loadNearbyAgents() async {
-    agentsLoading.value = true;
-    try {
-      agentsData.value = await _homeRepository.getNearbyAgentsList();
-      agentsLoading.value = false;
-    } catch (_) {
-      agentsLoading.value = false;
-    }
   }
 
   /// 8. GET /api/v1/properties/explore-nearby?propertyId=...&radius=...

@@ -48,7 +48,8 @@ class HomeRepository {
         );
       }
       AppLogger.i('Home feed loaded');
-      return HomeFeedModel.fromJson(Map<String, dynamic>.from(data));
+      final innerData = data['data'] is Map ? Map<String, dynamic>.from(data['data']) : Map<String, dynamic>.from(data);
+      return HomeFeedModel.fromJson(innerData);
     } on DioException catch (e, st) {
       AppLogger.e('Home feed request failed', e, st);
       throw HomeFeedException(_extractMessage(e));

@@ -165,6 +165,8 @@ class HomeScreen extends StatelessWidget {
             SizedBox(height: 18.h),
             _buildBoostedSection(),
             SizedBox(height: 18.h),
+            _buildHeroBanners(),
+            SizedBox(height: 18.h),
             _buildSectionTitle('Explore Near You'),
             SizedBox(height: 8.h),
             _buildExploreMap(context),
@@ -701,10 +703,10 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildBoostedSection() {
-    if (controller.boostedLoading.value) {
+    if (controller.isLoading.value) {
       return _sectionLoader(height: 190);
     }
-    final properties = controller.boostedData.value?.properties ?? [];
+    final properties = controller.homeFeed.value?.boostedProperties ?? [];
     if (properties.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -818,6 +820,31 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Hero banner carousel (homeFeed.banners — type CMS_HERO), auto-sliding.
+  /// "Explore Near You" section ke upar dikhta hai.
+  Widget _buildHeroBanners() {
+    if (controller.isLoading.value) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20.w),
+        child: _sectionLoader(height: 160),
+      );
+    }
+    final banners = controller.homeFeed.value?.banners ?? [];
+    final imageUrls = banners
+        .map((b) => b.image)
+        .whereType<String>()
+        .where((url) => url.isNotEmpty)
+        .toList();
+    if (imageUrls.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: HeroBannerCarousel(imageUrls: imageUrls),
     );
   }
 
@@ -992,10 +1019,10 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildNewListings() {
-    if (controller.newListingsLoading.value) {
+    if (controller.isLoading.value) {
       return _sectionLoader(height: 240);
     }
-    final listings = controller.newListingsData.value?.properties ?? [];
+    final listings = controller.homeFeed.value?.newListings ?? [];
     if (listings.isEmpty) {
       return _buildEmptySectionMessage('No new listings near you yet.');
     }
@@ -1019,10 +1046,10 @@ class HomeScreen extends StatelessWidget {
     );
   }
   Widget _buildPopularAreas() {
-    if (controller.popularLoading.value) {
+    if (controller.isLoading.value) {
       return _sectionLoader(height: 171);
     }
-    final areas = controller.popularLocationsData.value?.areas ?? [];
+    final areas = controller.homeFeed.value?.popularAreas ?? [];
     if (areas.isEmpty) {
       return _buildEmptySectionMessage('No popular areas available.');
     }
@@ -1043,7 +1070,7 @@ class HomeScreen extends StatelessWidget {
                 'title': '${area.locality ?? 'Popular'} Area Properties',
                 'locality': area.locality ?? '',
                 'city': controller.homeFeed.value?.location?.city ?? 'Indore',
-                'images': area.sampleImage != null ? [{'url': area.sampleImage}] : [],
+                'images': area.image != null ? [{'url': area.image}] : [],
                 'price': 'Explore Available',
                 'description': 'Explore ${area.propertyCount ?? 0}+ verified properties available in ${area.locality ?? 'this area'}.',
                 'category': 'Residential',
@@ -1069,28 +1096,12 @@ class HomeScreen extends StatelessWidget {
                   Stack(
                     children: [
                       _cachedImage(
-                        area.sampleImage,
+                        area.image,
                         width: 169.w,
                         height: 90.h,
                         fallbackIcon: Icons.location_city_rounded,
                         borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
                       ),
-                      if ((area.promotedCount ?? 0) > 0)
-                        Positioned(
-                          top: 8.h,
-                          right: 8.w,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F2544),
-                              borderRadius: BorderRadius.circular(20.r),
-                            ),
-                            child: Text(
-                              '${area.promotedCount} Promoted',
-                              style: GoogleFonts.poppins(fontSize: 8.sp, fontWeight: FontWeight.w700, color: Colors.white),
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                   Padding(
@@ -1127,17 +1138,20 @@ class HomeScreen extends StatelessWidget {
   Timer? _agentAutoScrollTimer;
 
   Widget _buildVerifiedAgent() {
-    if (controller.agentsLoading.value) {
+    if (controller.isLoading.value) {
       return _sectionLoader(height: 100);
     }
 
-    final agents = controller.agentsData.value?.agents ?? [];
+    final agents = controller.homeFeed.value?.agents ?? [];
+
+
     if (agents.isEmpty) {
       return _buildEmptySectionMessage('No verified agents found near you yet.');
     }
 
     if (_agentAutoScrollTimer == null && agents.length > 1) {
-      _agentAutoScrollTimer = Timer.periodic(const Duration(milliseconds: 2), (timer) {
+      _agentAutoScrollTimer = Timer.periodic(const Duration(milliseconds: 25
+      ), (timer) {
         if (_agentScrollController.hasClients) {
           double maxScroll = _agentScrollController.position.maxScrollExtent;
           double currentScroll = _agentScrollController.offset;
@@ -2215,6 +2229,118 @@ class ExploreMapViewScreen extends StatelessWidget {
 }
 
 
+class HeroBannerCarousel extends StatefulWidget {
+  final List<String> imageUrls;
+
+  const HeroBannerCarousel({required this.imageUrls});
+
+  @override
+  State<HeroBannerCarousel> createState() => _HeroBannerCarouselState();
+}
+
+class _HeroBannerCarouselState extends State<HeroBannerCarousel> {
+  late PageController _pageController;
+  Timer? _autoSlideTimer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+
+    // Har 4 second me auto-slide, agar 1 se zyada banner hai
+    if (widget.imageUrls.length > 1) {
+      _autoSlideTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+        if (_pageController.hasClients) {
+          final length = widget.imageUrls.length;
+          _currentPage = (_currentPage + 1) % length;
+          _pageController.animateToPage(
+            _currentPage,
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18.r),
+      child: SizedBox(
+        height: 160.h,
+        width: double.infinity,
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: widget.imageUrls.length,
+              onPageChanged: (index) => setState(() => _currentPage = index),
+              itemBuilder: (context, index) {
+                return Image.network(
+                  widget.imageUrls[index],
+                  width: double.infinity,
+                  height: 160.h,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      color: Colors.grey.shade200,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.4, color: Color(0xFF007A5E)),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(Icons.broken_image_rounded, size: 28, color: Colors.grey),
+                    ),
+                  ),
+                );
+              },
+            ),
+            if (widget.imageUrls.length > 1)
+              Positioned(
+                bottom: 10.h,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.imageUrls.length, (index) {
+                    final isActive = index == _currentPage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: EdgeInsets.symmetric(horizontal: 3.w),
+                      width: isActive ? 18.w : 6.w,
+                      height: 6.h,
+                      decoration: BoxDecoration(
+                        color: isActive ? Colors.white : Colors.white.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class NewListingCard extends StatefulWidget {
   final dynamic item;
   final VoidCallback onTap;
@@ -2679,7 +2805,9 @@ class RecommendedPropertyCardState extends State<RecommendedPropertyCard> {
       ),
     );
   }
-}class AutoSlideAgentCard extends StatelessWidget {
+}
+
+class AutoSlideAgentCard extends StatelessWidget {
   final dynamic agent;
   final String initial;
   final Widget Function(String? url, {required double width, required double height, BoxFit fit, IconData fallbackIcon, BorderRadius? borderRadius}) cachedImageBuilder;

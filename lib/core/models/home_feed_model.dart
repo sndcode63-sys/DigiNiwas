@@ -33,7 +33,7 @@ class HomeFeedModel {
   Location? location;
   List<Banners>? banners;
   List<RecommendedProperties>? recommendedProperties;
-  List<dynamic>? boostedProperties;
+  List<RecommendedProperties>? boostedProperties;
   List<NewListings>? newListings;
   List<PopularAreas>? popularAreas;
   List<Agents>? agents;
@@ -51,7 +51,10 @@ class HomeFeedModel {
       recommendedProperties = json["recommendedProperties"] == null ? null : (json["recommendedProperties"] as List).map((e) => RecommendedProperties.fromJson(e)).toList();
     }
     if(json["boostedProperties"] is List) {
-      boostedProperties = json["boostedProperties"] ?? [];
+      boostedProperties = (json["boostedProperties"] as List)
+          .whereType<Map>()
+          .map((e) => RecommendedProperties.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
     }
     if(json["newListings"] is List) {
       newListings = json["newListings"] == null ? null : (json["newListings"] as List).map((e) => NewListings.fromJson(e)).toList();
@@ -475,8 +478,9 @@ class NewListings {
   Promotion1? promotion;
   dynamic distanceKm;
   bool? sameCity;
+  String? listedAgo;
 
-  NewListings({this.id, this.propertyId, this.title, this.transactionType, this.category, this.price, this.pricePerSqft, this.city, this.locality, this.address, this.latitude, this.longitude, this.bedrooms, this.bathrooms, this.furnishing, this.images, this.createdAt, this.promotion, this.distanceKm, this.sameCity});
+  NewListings({this.id, this.propertyId, this.title, this.transactionType, this.category, this.price, this.pricePerSqft, this.city, this.locality, this.address, this.latitude, this.longitude, this.bedrooms, this.bathrooms, this.furnishing, this.images, this.createdAt, this.promotion, this.distanceKm, this.sameCity, this.listedAgo});
 
   NewListings.fromJson(Map<String, dynamic> json) {
     if(json["_id"] is String) {
@@ -537,6 +541,9 @@ class NewListings {
     if(json["sameCity"] is bool) {
       sameCity = json["sameCity"];
     }
+    if(json["listedAgo"] is String) {
+      listedAgo = json["listedAgo"];
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -565,6 +572,7 @@ class NewListings {
     }
     _data["distanceKm"] = distanceKm;
     _data["sameCity"] = sameCity;
+    _data["listedAgo"] = listedAgo;
     return _data;
   }
 }
