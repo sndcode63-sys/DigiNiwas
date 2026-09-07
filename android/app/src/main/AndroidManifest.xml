@@ -4,6 +4,7 @@
          fail on Android and no location is ever sent to the backend. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
 
     <application
         android:label="diginiwas"

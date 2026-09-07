@@ -30,12 +30,12 @@ dependencies:
   firebase_messaging: ^15.0.4
   flutter_local_notifications: ^17.2.2
   image_picker: ^1.1.2
-  google_maps_flutter: ^2.5.3 # (ya latest version)
-
+  google_maps_flutter: ^2.5.3
   # Responsive sizing
   flutter_screenutil: ^5.9.3
   flutter_svg: ^2.3.0
   cached_network_image: ^3.4.1
+  geocoding: ^5.0.0
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   panorama_viewer: ^2.0.7

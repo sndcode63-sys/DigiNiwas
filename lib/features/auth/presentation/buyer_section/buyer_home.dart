@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:diginiwas/features/auth/presentation/buyer_section/property_details_screen.dart';
@@ -589,9 +590,6 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildRecommendedCards() {
-    // When a category chip (Buy/Rent/Plot/Commercial) is active, this section
-    // swaps to show that filter's results instead of the default home-feed
-    // recommendations — tapping a tab changes what's shown right here.
     if (controller.selectedCategoryTab.value != null) {
       if (controller.categoryFilterLoading.value) {
         return _sectionLoader(height: 380);
@@ -608,7 +606,15 @@ class HomeScreen extends StatelessWidget {
         bedroomsAt: (i) => filtered[i].bedrooms,
         furnishingAt: (i) => filtered[i].furnishing,
         priceAt: (i) => filtered[i].price,
-        imageUrlAt: (i) => filtered[i].images?.isNotEmpty == true ? filtered[i].images!.first.url : null,
+        imageUrlsAt: (i) {
+          final imgs = <String>[];
+          if (filtered[i].images != null) {
+            for (var img in filtered[i].images!) {
+              if (img.url != null) imgs.add(img.url!);
+            }
+          }
+          return imgs;
+        },
         jsonAt: (i) => filtered[i].toJson(),
       );
     }
@@ -625,11 +631,18 @@ class HomeScreen extends StatelessWidget {
       bedroomsAt: (i) => properties[i].bedrooms,
       furnishingAt: (i) => properties[i].furnishing,
       priceAt: (i) => properties[i].price,
-      imageUrlAt: (i) => properties[i].images?.isNotEmpty == true ? properties[i].images!.first.url : null,
+      imageUrlsAt: (i) {
+        final imgs = <String>[];
+        if (properties[i].images != null) {
+          for (var img in properties[i].images!) {
+            if (img.url != null) imgs.add(img.url!);
+          }
+        }
+        return imgs;
+      },
       jsonAt: (i) => properties[i].toJson(),
     );
   }
-
   /// Shared card list UI — used for both the default recommended feed and
   /// the active category-filter results, so the look stays identical.
   Widget _recommendedCardsList({
@@ -640,7 +653,7 @@ class HomeScreen extends StatelessWidget {
     required String? Function(int) bedroomsAt,
     required String? Function(int) furnishingAt,
     required int? Function(int) priceAt,
-    required String? Function(int) imageUrlAt,
+    required List<String> Function(int) imageUrlsAt, // 👈 Multiple images ke liye list handler
     required Map<String, dynamic> Function(int) jsonAt,
   }) {
     return SizedBox(
@@ -651,213 +664,22 @@ class HomeScreen extends StatelessWidget {
         itemCount: count,
         physics: const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
-          return Container(
-            width: 280.w,
-            margin: EdgeInsets.only(right: 16.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18.r),
-              border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Tapping the image/top area also opens details
-                Stack(
-                  children: [
-                    _cachedImage(
-                      imageUrlAt(index),
-                      width: 278.w,
-                      height: 208.h,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
-                    ),
-                    // Verified Badge (Top-Left)
-                    Positioned(
-                      top: 10.h,
-                      left: 10.w,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 4.h),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.95),
-                          borderRadius: BorderRadius.circular(20.r),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle_outline_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
-                            SizedBox(width: 4.w),
-                            Text(
-                              'Verified',
-                              style: GoogleFonts.poppins(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Heart / Favorite Icon (Top-Right)
-                    Positioned(
-                      top: 10.h,
-                      right: 10.w,
-                      child: GestureDetector(
-                        onTap: () async {
-                          try {
-                            String? buyerId = await StorageService.instance.buyerId;
-                            if (buyerId == null || buyerId.isEmpty) {
-                              buyerId = await StorageService.instance.userId;
-                            }
-                            if (buyerId == null || buyerId.isEmpty) {
-                              final userJson = await SecureStorageService.instance.getUserData();
-                              if (userJson != null && userJson.isNotEmpty) {
-                                try {
-                                  final userMap = jsonDecode(userJson) as Map<String, dynamic>;
-                                  buyerId = userMap['id']?.toString() ??
-                                      userMap['_id']?.toString() ??
-                                      userMap['buyerId']?.toString();
-                                } catch (_) {}
-                              }
-                            }
-
-                            final itemJson = jsonAt(index);
-                            final propertyId = itemJson['_id']?.toString() ?? itemJson['propertyId']?.toString();
-
-                            if (buyerId != null && buyerId.isNotEmpty && propertyId != null) {
-                              await controller.toggleSaveProperty(buyerId, propertyId);
-                            }
-                          } catch (e) {
-                            print('DEBUG_HEART EXCEPTION: $e');
-                          }
-                        },
-                        child: Obx(() {
-                          final itemJson = jsonAt(index);
-                          final propertyId = itemJson['_id']?.toString() ?? itemJson['propertyId']?.toString();
-
-                          // Check karo kya yeh property saved list me hai
-                          final isSaved = propertyId != null && controller.savedPropertyIds.contains(propertyId);
-
-                          return Container(
-                            padding: EdgeInsets.all(7.r),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.9),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                              size: 16.sp,
-                              color: const Color(0xFFE53935), // Red color
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        titleAt(index) ?? 'Property',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(fontSize: 14.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-                      ),
-                      SizedBox(height: 3.h),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on_outlined, size: 12.sp, color: const Color(0xFF64748B)),
-                          SizedBox(width: 3.w),
-                          Expanded(
-                            child: Text(
-                              '${localityAt(index) ?? ''}, ${cityAt(index) ?? ''}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8.h),
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6.r)),
-                            child: Text('${bedroomsAt(index) ?? '0'} BHK', style: GoogleFonts.poppins(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
-                          ),
-                          SizedBox(width: 8.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6.r)),
-                            child: Text(furnishingAt(index) ?? 'Ready', style: GoogleFonts.poppins(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 6.h),
-                      Text(
-                        '₹ ${priceAt(index) ?? 0}',
-                        style: GoogleFonts.poppins(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), letterSpacing: -0.3),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // VIEW button
-                Padding(
-                  padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: Material(
-                      color: const Color(0xFFA7F3D0),
-                      borderRadius: BorderRadius.circular(10.r),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10.r),
-                        onTap: () {
-                          Get.toNamed(
-                            AppRoutes.propertyDetails,
-                            arguments: {'property': jsonAt(index)},
-                          );
-                        },
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 10.h),
-                          child: Center(
-                            child: Text(
-                              'VIEW',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF0F2544),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          return RecommendedPropertyCard(
+            propertyJson: jsonAt(index),
+            title: titleAt(index),
+            locality: localityAt(index),
+            city: cityAt(index),
+            bedrooms: bedroomsAt(index),
+            furnishing: furnishingAt(index),
+            price: priceAt(index),
+            imageUrls: imageUrlsAt(index),
+            controller: controller,
+            cachedImageBuilder: _cachedImage,
           );
         },
       ),
     );
   }
-
   Widget _buildEmptySectionMessage(String message) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
@@ -1187,80 +1009,15 @@ class HomeScreen extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
           final item = listings[index];
-          return GestureDetector(
+          // ✅ Yeh ab neeche defined widget ko call karega jo automatically slide karega
+          return NewListingCard(
+            item: item,
             onTap: () => Get.toNamed(AppRoutes.propertyDetails, arguments: {'property': item.toJson()}),
-            child: Container(
-              width: 200.w,
-              margin: EdgeInsets.only(right: 14.w),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18.r),
-                border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    children: [
-                      _cachedImage(
-                        item.images?.isNotEmpty == true ? item.images!.first.url : null,
-                        width: 198.w,
-                        height: 120.h,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
-                      ),
-                      if ((item.listedAgo ?? '').isNotEmpty)
-                        Positioned(
-                          top: 8.h,
-                          left: 8.w,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF007A5E),
-                              borderRadius: BorderRadius.circular(20.r),
-                            ),
-                            child: Text(
-                              item.listedAgo!,
-                              style: GoogleFonts.poppins(fontSize: 9.sp, fontWeight: FontWeight.w700, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(10.w, 8.h, 10.w, 10.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title ?? 'Property',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
-                        ),
-                        SizedBox(height: 3.h),
-                        Text(
-                          '${item.locality ?? ''}, ${item.city ?? ''}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(fontSize: 10.sp, color: const Color(0xFF64748B)),
-                        ),
-                        SizedBox(height: 6.h),
-                        Text(
-                          '₹ ${item.price ?? 0}',
-                          style: GoogleFonts.poppins(fontSize: 13.5.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
           );
         },
       ),
     );
   }
-
   Widget _buildPopularAreas() {
     if (controller.popularLoading.value) {
       return _sectionLoader(height: 171);
@@ -1366,18 +1123,39 @@ class HomeScreen extends StatelessWidget {
   // ---------------------------------------------------------------------
   // VERIFIED AGENTS SECTION (Matching your UI Design)
   // ---------------------------------------------------------------------
+  final ScrollController _agentScrollController = ScrollController();
+  Timer? _agentAutoScrollTimer;
+
   Widget _buildVerifiedAgent() {
     if (controller.agentsLoading.value) {
       return _sectionLoader(height: 100);
     }
+
     final agents = controller.agentsData.value?.agents ?? [];
     if (agents.isEmpty) {
       return _buildEmptySectionMessage('No verified agents found near you yet.');
     }
 
+    if (_agentAutoScrollTimer == null && agents.length > 1) {
+      _agentAutoScrollTimer = Timer.periodic(const Duration(milliseconds: 2), (timer) {
+        if (_agentScrollController.hasClients) {
+          double maxScroll = _agentScrollController.position.maxScrollExtent;
+          double currentScroll = _agentScrollController.offset;
+
+          double nextScroll = currentScroll + 1.2; // Auto slide speed
+          if (nextScroll >= maxScroll) {
+            nextScroll = 0.0; // Wapas start par aa jayega
+          }
+
+          _agentScrollController.jumpTo(nextScroll);
+        }
+      });
+    }
+
     return SizedBox(
       height: 100.h,
       child: ListView.separated(
+        controller: _agentScrollController, // 👈 Auto scroll controller attached
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 20.w),
         physics: const BouncingScrollPhysics(),
@@ -1387,113 +1165,18 @@ class HomeScreen extends StatelessWidget {
           final agent = agents[index];
           final initial = (agent.name?.trim().isNotEmpty == true) ? agent.name!.trim().substring(0, 1).toUpperCase() : 'A';
 
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              _showAgentProfileBottomSheet(context, agent);
+          return AutoSlideAgentCard(
+            agent: agent,
+            initial: initial,
+            cachedImageBuilder: _cachedImage,
+            onProfileTap: (ctx, ag) {
+              _showAgentProfileBottomSheet(ctx, ag);
             },
-            child: Container(
-              width: 290.w,
-              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Agent Avatar / Initial
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(28.r),
-                    child: (agent.avatar?.isNotEmpty == true)
-                        ? _cachedImage(agent.avatar, width: 50.w, height: 50.w, fallbackIcon: Icons.person)
-                        : CircleAvatar(
-                      radius: 25.r,
-                      backgroundColor: const Color(0xFFA8E6CF),
-                      child: Text(
-                        initial,
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: const Color(0xFF0F2544), fontSize: 16.sp),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-
-                  // Name & Verified Badge
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          agent.name ?? 'Agent',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14.sp,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                        SizedBox(height: 4.h),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F7F2),
-                            borderRadius: BorderRadius.circular(20.r),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.verified_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
-                              SizedBox(width: 4.w),
-                              Text(
-                                'Verified Partner',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF007A5E),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: 8.w),
-
-                  // Profile Outline Button
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFF007A5E), width: 1.2),
-                      borderRadius: BorderRadius.circular(20.r),
-                    ),
-                    child: Text(
-                      'Profile',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF007A5E),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           );
         },
       ),
     );
   }
-
 
   /// Dynamic Agent Profile Bottom Sheet mapping 100% API response data
   void _showAgentProfileBottomSheet(BuildContext context, dynamic agent) {
@@ -2527,6 +2210,589 @@ class ExploreMapViewScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+
+class NewListingCard extends StatefulWidget {
+  final dynamic item;
+  final VoidCallback onTap;
+
+  const NewListingCard({required this.item, required this.onTap});
+
+  @override
+  State<NewListingCard> createState() => NewListingCardState();
+}
+
+class NewListingCardState extends State<NewListingCard> {
+  late PageController _pageController;
+  Timer? _autoSlideTimer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+
+    // Automatically slide every 3 seconds if multiple images exist
+    final images = widget.item.images;
+    if (images is List && images.length > 1) {
+      _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        if (_pageController.hasClients) {
+          final int length = images.length;
+          if (_currentPage < length - 1) {
+            _currentPage++;
+          } else {
+            _currentPage = 0;
+          }
+          _pageController.animateToPage(
+            _currentPage,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final List<String> imageUrls = [];
+    if (item.images != null && item.images!.isNotEmpty) {
+      for (var img in item.images!) {
+        if (img.url != null && img.url!.isNotEmpty) {
+          imageUrls.add(img.url!);
+        }
+      }
+    }
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        width: 200.w,
+        margin: EdgeInsets.only(right: 14.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18.r),
+          border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                SizedBox(
+                  height: 120.h,
+                  child: imageUrls.isNotEmpty
+                      ? PageView.builder(
+                    controller: _pageController,
+                    itemCount: imageUrls.length,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentPage = index;
+                      });
+                    },
+                    itemBuilder: (context, imgIndex) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                        child: Image.network(
+                          imageUrls[imgIndex],
+                          width: 198.w,
+                          height: 120.h,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: Icon(Icons.broken_image, size: 24, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                      : ClipRRect(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                    child: Container(
+                      color: Colors.grey.shade200,
+                      child: const Center(
+                        child: Icon(Icons.home_work_rounded, size: 24, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                ),
+                if ((item.listedAgo ?? '').isNotEmpty)
+                  Positioned(
+                    top: 8.h,
+                    left: 8.w,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF007A5E),
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Text(
+                        item.listedAgo!,
+                        style: GoogleFonts.poppins(fontSize: 9.sp, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                // ❌ Yahan se dots indicator wala code poori tarah hata diya gaya hai taaki koi indicator na dikhe.
+              ],
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(10.w, 8.h, 10.w, 10.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title ?? 'Property',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                  ),
+                  SizedBox(height: 3.h),
+                  Text(
+                    '${item.locality ?? ''}, ${item.city ?? ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(fontSize: 10.sp, color: const Color(0xFF64748B)),
+                  ),
+                  SizedBox(height: 6.h),
+                  Text(
+                    '₹ ${item.price ?? 0}',
+                    style: GoogleFonts.poppins(fontSize: 13.5.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+class RecommendedPropertyCard extends StatefulWidget {
+  final Map<String, dynamic> propertyJson;
+  final String? title;
+  final String? locality;
+  final String? city;
+  final String? bedrooms;
+  final String? furnishing;
+  final int? price;
+  final List<String> imageUrls;
+  final BuyerHomeController controller;
+  final Widget Function(String? url, {required double width, required double height, BoxFit fit, IconData fallbackIcon, BorderRadius? borderRadius}) cachedImageBuilder;
+
+  const RecommendedPropertyCard({
+    required this.propertyJson,
+    required this.title,
+    required this.locality,
+    required this.city,
+    required this.bedrooms,
+    required this.furnishing,
+    required this.price,
+    required this.imageUrls,
+    required this.controller,
+    required this.cachedImageBuilder,
+  });
+
+  @override
+  State<RecommendedPropertyCard> createState() => RecommendedPropertyCardState();
+}
+
+class RecommendedPropertyCardState extends State<RecommendedPropertyCard> {
+  late PageController _pageController;
+  Timer? _autoSlideTimer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+
+    // 🕒 Automatically slide every 3 seconds if multiple images exist
+    if (widget.imageUrls.length > 1) {
+      _autoSlideTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        if (_pageController.hasClients) {
+          final int length = widget.imageUrls.length;
+          if (_currentPage < length - 1) {
+            _currentPage++;
+          } else {
+            _currentPage = 0;
+          }
+          _pageController.animateToPage(
+            _currentPage,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSlideTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final itemJson = widget.propertyJson;
+    final propertyId = itemJson['_id']?.toString() ?? itemJson['propertyId']?.toString();
+
+    return Container(
+      width: 280.w,
+      margin: EdgeInsets.only(right: 16.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              // 🖼️ PageView for Auto-Sliding Multiple Images (No Indicator)
+              SizedBox(
+                height: 208.h,
+                child: widget.imageUrls.isNotEmpty
+                    ? PageView.builder(
+                  controller: _pageController,
+                  itemCount: widget.imageUrls.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentPage = index;
+                    });
+                  },
+                  itemBuilder: (context, imgIndex) {
+                    return ClipRRect(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                      child: widget.cachedImageBuilder(
+                        widget.imageUrls[imgIndex],
+                        width: 278.w,
+                        height: 208.h,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                      ),
+                    );
+                  },
+                )
+                    : ClipRRect(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                  child: widget.cachedImageBuilder(
+                    null,
+                    width: 278.w,
+                    height: 208.h,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+                  ),
+                ),
+              ),
+
+              // Verified Badge (Top-Left)
+              Positioned(
+                top: 10.h,
+                left: 10.w,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_outline_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
+                      SizedBox(width: 4.w),
+                      Text(
+                        'Verified',
+                        style: GoogleFonts.poppins(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Heart / Favorite Icon (Top-Right)
+              Positioned(
+                top: 10.h,
+                right: 10.w,
+                child: GestureDetector(
+                  onTap: () async {
+                    try {
+                      String? buyerId = await StorageService.instance.buyerId;
+                      if (buyerId == null || buyerId.isEmpty) {
+                        buyerId = await StorageService.instance.userId;
+                      }
+                      if (buyerId == null || buyerId.isEmpty) {
+                        final userJson = await SecureStorageService.instance.getUserData();
+                        if (userJson != null && userJson.isNotEmpty) {
+                          try {
+                            final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+                            buyerId = userMap['id']?.toString() ??
+                                userMap['_id']?.toString() ??
+                                userMap['buyerId']?.toString();
+                          } catch (_) {}
+                        }
+                      }
+
+                      if (buyerId != null && buyerId.isNotEmpty && propertyId != null) {
+                        await widget.controller.toggleSaveProperty(buyerId, propertyId);
+                      }
+                    } catch (e) {
+                      print('DEBUG_HEART EXCEPTION: $e');
+                    }
+                  },
+                  child: Obx(() {
+                    final isSaved = propertyId != null && widget.controller.savedPropertyIds.contains(propertyId);
+
+                    return Container(
+                      padding: EdgeInsets.all(7.r),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        size: 16.sp,
+                        color: const Color(0xFFE53935),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title ?? 'Property',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(fontSize: 14.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                ),
+                SizedBox(height: 3.h),
+                Row(
+                  children: [
+                    Icon(Icons.location_on_outlined, size: 12.sp, color: const Color(0xFF64748B)),
+                    SizedBox(width: 3.w),
+                    Expanded(
+                      child: Text(
+                        '${widget.locality ?? ''}, ${widget.city ?? ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B)),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8.h),
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                      decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6.r)),
+                      child: Text('${widget.bedrooms ?? '0'} BHK', style: GoogleFonts.poppins(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+                    ),
+                    SizedBox(width: 8.w),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                      decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6.r)),
+                      child: Text(widget.furnishing ?? 'Ready', style: GoogleFonts.poppins(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 6.h),
+                Text(
+                  '₹ ${widget.price ?? 0}',
+                  style: GoogleFonts.poppins(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), letterSpacing: -0.3),
+                ),
+              ],
+            ),
+          ),
+
+          // VIEW button
+          Padding(
+            padding: EdgeInsets.fromLTRB(12.w, 0, 12.w, 12.h),
+            child: SizedBox(
+              width: double.infinity,
+              child: Material(
+                color: const Color(0xFFA7F3D0),
+                borderRadius: BorderRadius.circular(10.r),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10.r),
+                  onTap: () {
+                    Get.toNamed(
+                      AppRoutes.propertyDetails,
+                      arguments: {'property': itemJson},
+                    );
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10.h),
+                    child: Center(
+                      child: Text(
+                        'VIEW',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F2544),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}class AutoSlideAgentCard extends StatelessWidget {
+  final dynamic agent;
+  final String initial;
+  final Widget Function(String? url, {required double width, required double height, BoxFit fit, IconData fallbackIcon, BorderRadius? borderRadius}) cachedImageBuilder;
+  final Function(BuildContext, dynamic) onProfileTap;
+
+  const AutoSlideAgentCard({
+    required this.agent,
+    required this.initial,
+    required this.cachedImageBuilder,
+    required this.onProfileTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onProfileTap(context, agent),
+      child: Container(
+        width: 290.w,
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Agent Avatar / Initial
+            ClipRRect(
+              borderRadius: BorderRadius.circular(28.r),
+              child: (agent.avatar?.isNotEmpty == true)
+                  ? cachedImageBuilder(agent.avatar, width: 50.w, height: 50.w, fallbackIcon: Icons.person)
+                  : CircleAvatar(
+                radius: 25.r,
+                backgroundColor: const Color(0xFFA8E6CF),
+                child: Text(
+                  initial,
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: const Color(0xFF0F2544), fontSize: 16.sp),
+                ),
+              ),
+            ),
+            SizedBox(width: 12.w),
+
+            // Name & Verified Badge
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    agent.name ?? 'Agent',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.sp,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F7F2),
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.verified_rounded, size: 12.sp, color: const Color(0xFF007A5E)),
+                        SizedBox(width: 4.w),
+                        Text(
+                          'Verified Partner',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF007A5E),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 8.w),
+
+            // Profile Outline Button
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF007A5E), width: 1.2),
+                borderRadius: BorderRadius.circular(20.r),
+              ),
+              child: Text(
+                'Profile',
+                style: GoogleFonts.poppins(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF007A5E),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
