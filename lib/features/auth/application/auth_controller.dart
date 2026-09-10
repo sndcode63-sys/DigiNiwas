@@ -72,9 +72,7 @@ class AuthController extends GetxController {
     }
   }
 
-  /// Sends a login OTP for an already-registered phone number. Also
-  /// opens the location permission prompt so a fresh fix is ready by the
-  /// time the OTP is verified.
+
   Future<bool> requestLoginOtp({
     required String phone,
     String role = AuthState.defaultRole,

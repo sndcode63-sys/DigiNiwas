@@ -166,6 +166,16 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     });
   }
 
+  // 📅 Schedule Visit Bottom Sheet
+  void _showScheduleVisitSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ScheduleVisitBottomSheet(controller: controller),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(PropertyDetailsController());
@@ -481,31 +491,18 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => controller.launchWhatsApp("919876543210"),
-                icon: const Icon(Icons.chat, color: Color(0xFF007A5E)),
-                label: Text(
-                  'WhatsApp',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF007A5E)),
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                ),
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
+            // 📅 Schedule Visit Button Added Here
+            SizedBox(
+              width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => controller.makePhoneCall("9876543210"),
-                icon: const Icon(Icons.call, color: Colors.white),
+                onPressed: () => _showScheduleVisitSheet(context),
+                icon: Icon(Icons.calendar_month_rounded, color: Colors.white, size: 16.sp),
                 label: Text(
-                  'Call Owner',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white),
+                  'Schedule Visit',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.sp),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF007A5E),
@@ -514,6 +511,43 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                   elevation: 0,
                 ),
               ),
+            ),
+            SizedBox(height: 10.h),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => controller.launchWhatsApp("919876543210"),
+                    icon: const Icon(Icons.chat, color: Color(0xFF007A5E)),
+                    label: Text(
+                      'WhatsApp',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF007A5E)),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => controller.makePhoneCall("9876543210"),
+                    icon: const Icon(Icons.call, color: Colors.white),
+                    label: Text(
+                      'Call Owner',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007A5E),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -736,9 +770,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           Divider(color: const Color(0xFFCBEFE0), height: 1),
           SizedBox(height: 10.h),
           InkWell(
-            onTap: () {
-              // TODO: hook up real "how this was calculated" explanation sheet
-            },
+            onTap: () {},
             child: Row(
               children: [
                 Icon(Icons.info_outline_rounded, size: 14.sp, color: const Color(0xFF007A5E)),
@@ -882,9 +914,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                // TODO: hook up real partner-connect flow
-              },
+              onPressed: () {},
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF007A5E),
                 padding: EdgeInsets.symmetric(vertical: 13.h),
@@ -908,9 +938,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                // TODO: hook up real save-property flow (reuse _handleFavoriteToggle)
-              },
+              onPressed: () {},
               icon: Icon(Icons.bookmark_border_rounded, color: const Color(0xFF007A5E), size: 16.sp),
               label: Text(
                 'Save Property',
@@ -928,9 +956,6 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     );
   }
 
-  // =====================================================================
-  // 🏘️ REAL SIMILAR PROPERTIES SECTION (Driven via API)
-  // =====================================================================
   Widget _buildSimilarProperties() {
     return Obx(() {
       if (controller.isSimilarLoading.value) {
@@ -1100,6 +1125,546 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
   }
 }
 
+// 📅 Fixed Schedule Visit Bottom Sheet Widget (Safe Type Casting)
+class _ScheduleVisitBottomSheet extends StatefulWidget {
+  final PropertyDetailsController controller;
+
+  const _ScheduleVisitBottomSheet({required this.controller});
+
+  @override
+  State<_ScheduleVisitBottomSheet> createState() => _ScheduleVisitBottomSheetState();
+}
+
+class _ScheduleVisitBottomSheetState extends State<_ScheduleVisitBottomSheet> {
+  late DateTime _displayedMonth;
+  late DateTime _selectedDate;
+  String _selectedTimeSlot = '11:00 AM - 12:00 PM';
+
+  final List<String> _timeSlots = [
+    '10:00 AM - 11:00 AM',
+    '11:00 AM - 12:00 PM',
+    '12:00 PM - 01:00 PM',
+    '02:00 PM - 03:00 PM',
+    '04:00 PM - 05:00 PM',
+    '05:00 PM - 06:00 PM',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _displayedMonth = DateTime(now.year, now.month, 1);
+    _selectedDate = now;
+  }
+
+  void _changeMonth(int increment) {
+    setState(() {
+      _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month + increment, 1);
+    });
+  }
+
+  // Safe Price Formatter helper inside BottomSheet
+  String _formatPriceSafely(dynamic priceValue) {
+    if (priceValue == null) return '₹ 0';
+    String priceStr = priceValue.toString().trim();
+    if (priceStr.contains('L') || priceStr.contains('Cr') || priceStr.contains('₹')) {
+      return priceStr;
+    }
+
+    double? price = double.tryParse(priceStr);
+    if (price == null) return '₹ $priceValue';
+
+    if (price >= 10000000) {
+      double cr = price / 10000000;
+      return '₹ ${cr % 1 == 0 ? cr.toInt() : cr.toStringAsFixed(1)} Cr';
+    } else if (price >= 100000) {
+      double lakh = price / 100000;
+      return '₹ ${lakh % 1 == 0 ? lakh.toInt() : lakh.toStringAsFixed(1)} L';
+    } else if (price >= 1000) {
+      double thousand = price / 1000;
+      return '₹ ${thousand % 1 == 0 ? thousand.toInt() : thousand.toStringAsFixed(1)} K';
+    }
+    return '₹ $price';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String imgUrl = '';
+    final rawImgs = widget.controller.property['images'];
+    if (rawImgs is List && rawImgs.isNotEmpty) {
+      imgUrl = rawImgs[0] is Map ? (rawImgs[0]['url']?.toString() ?? '') : rawImgs[0].toString();
+    } else {
+      imgUrl = widget.controller.property['image']?.toString() ?? '';
+    }
+
+    final months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    final weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    int daysInMonth = DateTime(_displayedMonth.year, _displayedMonth.month + 1, 0).day;
+    int firstDayOfWeek = DateTime(_displayedMonth.year, _displayedMonth.month, 1).weekday % 7;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+      ),
+      padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 24.h),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Icon(Icons.calendar_month_rounded, color: const Color(0xFF007A5E), size: 20.sp),
+                SizedBox(width: 8.w),
+                Text(
+                  'Schedule Visit',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            SizedBox(height: 8.h),
+
+            // Property Mini Card
+            Container(
+              padding: EdgeInsets.all(10.w),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8.r),
+                    child: imgUrl.isNotEmpty
+                        ? Image.network(imgUrl, width: 50.w, height: 50.h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 50.w, height: 50.h, color: Colors.grey.shade200, child: const Icon(Icons.home, size: 20)))
+                        : Container(width: 50.w, height: 50.h, color: Colors.grey.shade200, child: const Icon(Icons.home, size: 20)),
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.controller.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                        ),
+                        SizedBox(height: 2.h),
+                        Text(
+                          widget.controller.address,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B)),
+                        ),
+                        SizedBox(height: 2.h),
+                        Text(
+                          _formatPriceSafely(widget.controller.property['price']),
+                          style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w800, color: const Color(0xFF007A5E)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6F4EA),
+                      borderRadius: BorderRadius.circular(6.r),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.verified, size: 10.sp, color: const Color(0xFF007A5E)),
+                        SizedBox(width: 3.w),
+                        Text('Verified', style: GoogleFonts.poppins(fontSize: 9.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16.h),
+
+            // Dynamic Calendar View
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${months[_displayedMonth.month - 1]} ${_displayedMonth.year}',
+                        style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left, size: 20),
+                            onPressed: () => _changeMonth(-1),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.all(4.w),
+                          ),
+                          SizedBox(width: 12.w),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right, size: 20),
+                            onPressed: () => _changeMonth(1),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.all(4.w),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 10.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: weekDays.map((day) => Text(day, style: GoogleFonts.poppins(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)))).toList(),
+                  ),
+                  SizedBox(height: 8.h),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 7,
+                      mainAxisSpacing: 6,
+                      crossAxisSpacing: 6,
+                    ),
+                    itemCount: daysInMonth + firstDayOfWeek,
+                    itemBuilder: (context, index) {
+                      if (index < firstDayOfWeek) {
+                        return const SizedBox.shrink();
+                      }
+                      int day = index - firstDayOfWeek + 1;
+                      DateTime currentDate = DateTime(_displayedMonth.year, _displayedMonth.month, day);
+                      bool isSelected = _selectedDate.year == currentDate.year &&
+                          _selectedDate.month == currentDate.month &&
+                          _selectedDate.day == currentDate.day;
+
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedDate = currentDate;
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFF007A5E) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '$day',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12.sp,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16.h),
+
+            // Select Time Title
+            Text(
+              'Select Time',
+              style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+            ),
+            SizedBox(height: 8.h),
+
+            // Time Slots Grid
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 3.2,
+                crossAxisSpacing: 10.w,
+                mainAxisSpacing: 10.h,
+              ),
+              itemCount: _timeSlots.length,
+              itemBuilder: (context, index) {
+                String slot = _timeSlots[index];
+                bool isSelected = _selectedTimeSlot == slot;
+
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedTimeSlot = slot;
+                    });
+                  },
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10.r),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF007A5E) : const Color(0xFFCBD5E1),
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      slot,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11.5.sp,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? const Color(0xFF007A5E) : const Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            SizedBox(height: 20.h),
+
+            // Request Visit Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close bottom sheet
+
+                  // Show Success Confirmation Dialog (Matching Design Reference)
+                  Get.dialog(
+                    Dialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+                      backgroundColor: Colors.white,
+                      insetPadding: EdgeInsets.symmetric(horizontal: 24.w),
+                      child: Padding(
+                        padding: EdgeInsets.all(20.w),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Close button at top right
+                            Align(
+                              alignment: Alignment.topRight,
+                              child: GestureDetector(
+                                onTap: () => Get.back(),
+                                child: Icon(Icons.close, size: 18.sp, color: const Color(0xFF64748B)),
+                              ),
+                            ),
+
+                            // Success Checkmark Icon
+                            Container(
+                              padding: EdgeInsets.all(12.w),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFE6F4EA),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.check_rounded, color: const Color(0xFF007A5E), size: 28.sp),
+                            ),
+                            SizedBox(height: 14.h),
+
+                            // Title
+                            Text(
+                              'Visit Request Received!',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0F172A),
+                              ),
+                            ),
+                            SizedBox(height: 6.h),
+
+                            // Subtitle
+                            Text(
+                              'We\'ve notified the DigiNiwas desk. A local verified partner is being assigned to lock your slot and guide your tour.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                fontSize: 11.5.sp,
+                                color: const Color(0xFF64748B),
+                                height: 1.4,
+                              ),
+                            ),
+                            SizedBox(height: 16.h),
+
+                            // Property & Time Summary Card
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(12.w),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12.r),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.home_work_rounded, size: 14.sp, color: const Color(0xFF64748B)),
+                                      SizedBox(width: 6.w),
+                                      Expanded(
+                                        child: Text(
+                                          widget.controller.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 8.h),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.calendar_month_rounded, size: 14.sp, color: const Color(0xFF007A5E)),
+                                      SizedBox(width: 6.w),
+                                      Text(
+                                        '${_selectedDate.day} ${months[_selectedDate.month - 1].substring(0, 3)} • ${_selectedTimeSlot.split(' - ')[0]}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11.5.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF007A5E),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 10.h),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(6.r),
+                                    ),
+                                    child: Text(
+                                      'Pending Partner Confirmation',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 10.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 12.h),
+
+                            // Notification info box
+                            Container(
+                              padding: EdgeInsets.all(10.w),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(10.r),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.notifications_outlined, size: 16.sp, color: const Color(0xFF2563EB)),
+                                  SizedBox(width: 8.w),
+                                  Expanded(
+                                    child: Text(
+                                      'You\'ll receive a WhatsApp & in-app update once confirmed.',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 10.5.sp,
+                                        color: const Color(0xFF1E40AF),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 20.h),
+
+                            // Action Buttons
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Get.back();
+
+                                  Get.to(() => const ScheduledVisitsScreen());
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF007A5E),
+                                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                                  elevation: 0,
+                                ),
+                                child: Text(
+                                  'View My Scheduled Visits',
+                                  style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w600, color: Colors.white),
+                                ),
+                              ),
+                            ),                            SizedBox(height: 8.h),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: () => Get.back(),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                                ),
+                                child: Text(
+                                  'Back to Home',
+                                  style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    barrierDismissible: false,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007A5E),
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Request Visit for ${_selectedDate.day} ${months[_selectedDate.month - 1].substring(0, 3)}',
+                  style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+
+    );
+  }
+}
+
 class _FullScreenZoomGallery extends StatefulWidget {
   final List<String> imageUrls;
   final int initialIndex;
@@ -1170,6 +1735,549 @@ class _FullScreenZoomGalleryState extends State<_FullScreenZoomGallery> {
           );
         },
       ),
+    );
+  }
+}
+
+
+
+class ScheduledVisitsScreen extends StatefulWidget {
+  const ScheduledVisitsScreen({super.key});
+
+  @override
+  State<ScheduledVisitsScreen> createState() => _ScheduledVisitsScreenState();
+}
+
+class _ScheduledVisitsScreenState extends State<ScheduledVisitsScreen> {
+  int _selectedTab = 0; // 0 for Upcoming, 1 for Under Review
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.menu, color: const Color(0xFF0F172A), size: 20.sp),
+          onPressed: () {},
+        ),
+        title: Text(
+          'LuxeEstate',
+          style: GoogleFonts.poppins(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF007A5E),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.notifications_outlined, color: const Color(0xFF0F172A), size: 20.sp),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Screen Title
+            Text(
+              'My Scheduled Visits',
+              style: GoogleFonts.poppins(
+                fontSize: 20.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            SizedBox(height: 14.h),
+
+            // Filter Tabs (Upcoming & Under Review)
+            Row(
+              children: [
+                _buildTabButton(0, 'Upcoming', '2', true),
+                SizedBox(width: 10.w),
+                _buildTabButton(1, 'Under Review', '1', false),
+              ],
+            ),
+            SizedBox(height: 20.h),
+
+            // Card 1: Upcoming Visit with Timeline & Agent Assigned
+            _buildUpcomingVisitCard(),
+            SizedBox(height: 16.h),
+
+            // Card 2: Under Review Visit Card
+            _buildUnderReviewVisitCard(),
+            SizedBox(height: 30.h),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Widget for Filter Tabs
+  Widget _buildTabButton(int index, String title, String count, bool isActiveDefault) {
+    bool isSelected = _selectedTab == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedTab = index;
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF007A5E) : const Color(0xFFE2E8F0),
+          borderRadius: BorderRadius.circular(20.r),
+        ),
+        child: Row(
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : const Color(0xFF475569),
+              ),
+            ),
+            SizedBox(width: 6.w),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white.withOpacity(0.2) : const Color(0xFFCBD5E1),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                count,
+                style: GoogleFonts.poppins(
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Upcoming Visit Card With Full Timeline
+  Widget _buildUpcomingVisitCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header info: Image, Title, Status Badge
+          Padding(
+            padding: EdgeInsets.all(14.w),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10.r),
+                  child: Container(
+                    width: 60.w,
+                    height: 60.w,
+                    color: Colors.grey.shade300,
+                    child: Icon(Icons.image, color: Colors.grey.shade600), // Replace with Image.network
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Green Residency',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE6F4EA),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(width: 6.w, height: 6.w, decoration: const BoxDecoration(color: Color(0xFF007A5E), shape: BoxShape.circle)),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  'Visit Confirmed',
+                                  style: GoogleFonts.poppins(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        'Sector 45, Gurgaon',
+                        style: GoogleFonts.poppins(fontSize: 11.sp, color: const Color(0xFF64748B)),
+                      ),
+                      SizedBox(height: 6.h),
+                      Row(
+                        children: [
+                          _buildTag('3 BHK'),
+                          SizedBox(width: 6.w),
+                          _buildTag('Ready to Move'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Date & Time Banner
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+            color: const Color(0xFFF8FAFC),
+            child: Row(
+              children: [
+                Icon(Icons.calendar_month_rounded, size: 16.sp, color: const Color(0xFF007A5E)),
+                SizedBox(width: 8.w),
+                Text(
+                  'Sat, 29 Aug • 11:00 AM',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Timeline Section
+          Padding(
+            padding: EdgeInsets.all(14.w),
+            child: Column(
+              children: [
+                _buildTimelineTile('Visit Requested', '25 Aug, 10:30 AM', true, true),
+                _buildTimelineTile('Agent Assigned', '26 Aug, 02:15 PM', true, true),
+                _buildTimelineTile('Slot Confirmed & Locked', 'Please reach the venue on time.', true, false, isCurrent: true),
+                _buildTimelineTile('Physical Tour', '', false, false),
+              ],
+            ),
+          ),
+
+          // Partner Details Card
+          Container(
+            margin: EdgeInsets.symmetric(horizontal: 14.w),
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18.r,
+                  backgroundColor: Colors.grey.shade400,
+                  child: Icon(Icons.person, color: Colors.white, size: 20.sp), // Replace with partner image
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Arjun Khanna',
+                        style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.star, size: 12.sp, color: Colors.amber),
+                          SizedBox(width: 4.w),
+                          Text(
+                            '4.8 Partner Rating',
+                            style: GoogleFonts.poppins(fontSize: 10.sp, color: const Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Call & Chat Action Icons
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: Icon(Icons.phone_outlined, size: 16.sp, color: const Color(0xFF007A5E)),
+                ),
+                SizedBox(width: 8.w),
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: const BoxDecoration(color: Color(0xFFE6F4EA), shape: BoxShape.circle),
+                  child: Icon(Icons.chat_bubble_outline_rounded, size: 16.sp, color: const Color(0xFF007A5E)),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 14.h),
+
+          // Bottom Action Buttons (Get Directions & Reschedule)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
+            child: Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007A5E),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                      elevation: 0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.directions, size: 16.sp, color: Colors.white),
+                        SizedBox(width: 6.w),
+                        Text('Get Directions', style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w600, color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {},
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                    ),
+                    child: Text('Reschedule / Cancel', style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 14.h),
+        ],
+      ),
+    );
+  }
+
+  // Under Review Visit Card
+  Widget _buildUnderReviewVisitCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(14.w),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10.r),
+                  child: Container(
+                    width: 60.w,
+                    height: 60.w,
+                    color: Colors.grey.shade300,
+                    child: Icon(Icons.image, color: Colors.grey.shade600),
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Sunset Villa',
+                            style: GoogleFonts.poppins(fontSize: 14.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                          ),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Text(
+                              'Under Review',
+                              style: GoogleFonts.poppins(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFFB45309)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        'Whitefield, Bangalore',
+                        style: GoogleFonts.poppins(fontSize: 11.sp, color: const Color(0xFF64748B)),
+                      ),
+                      SizedBox(height: 6.h),
+                      Row(
+                        children: [
+                          _buildTag('4 BHK'),
+                          SizedBox(width: 6.w),
+                          _buildTag('Villa'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+            color: const Color(0xFFF8FAFC),
+            child: Row(
+              children: [
+                Icon(Icons.calendar_month_rounded, size: 16.sp, color: const Color(0xFF007A5E)),
+                SizedBox(width: 8.w),
+                Text(
+                  'Sun, 30 Aug • 04:00 PM',
+                  style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF9C3),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(16.r),
+                bottomRight: Radius.circular(16.r),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline_rounded, size: 16.sp, color: const Color(0xFFB45309)),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Finding the best agent',
+                        style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFFB45309)),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        'We are currently assigning a dedicated property expert for this visit. You will be notified once confirmed.',
+                        style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF92400E), height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper for small tags (e.g. 3 BHK, Ready to Move)
+  Widget _buildTag(String text) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(4.r),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(fontSize: 9.5.sp, color: const Color(0xFF64748B)),
+      ),
+    );
+  }
+
+  // Helper widget for Timeline Steps
+  Widget _buildTimelineTile(String title, String subtitle, bool isCompleted, bool showLine, {bool isCurrent = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 18.w,
+              height: 18.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isCompleted && !isCurrent ? const Color(0xFF007A5E) : Colors.white,
+                border: Border.all(
+                  color: isCompleted ? const Color(0xFF007A5E) : const Color(0xFFCBD5E1),
+                  width: isCurrent ? 5.w : 2.w,
+                ),
+              ),
+              child: isCompleted && !isCurrent
+                  ? Icon(Icons.check, size: 10.sp, color: Colors.white)
+                  : null,
+            ),
+            if (showLine)
+              Container(
+                width: 2.w,
+                height: 26.h,
+                color: const Color(0xFFCBD5E1),
+              ),
+          ],
+        ),
+        SizedBox(width: 10.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 11.5.sp,
+                  fontWeight: FontWeight.w600,
+                  color: isCompleted || isCurrent ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                ),
+              ),
+              if (subtitle.isNotEmpty) ...[
+                SizedBox(height: 2.h),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(fontSize: 10.sp, color: const Color(0xFF64748B)),
+                ),
+              ],
+              SizedBox(height: 14.h),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
