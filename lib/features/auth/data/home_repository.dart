@@ -56,6 +56,39 @@ class HomeRepository {
     }
   }
 
+
+  /// GET /properties/filter ( ya /properties ) - Similar properties fetch karne ke liye
+  Future<List<Map<String, dynamic>>> getSimilarProperties({
+    String? category,
+    String? city,
+    String? currentPropertyId,
+  }) async {
+    try {
+      final response = await _apiService.get(
+        ApiConstants.filterProperties,
+        queryParameters: {
+          if (category != null && category.isNotEmpty) 'category': category,
+          if (city != null && city.isNotEmpty) 'city': city,
+        },
+      );
+
+      final data = response.data;
+      if (data is Map && data['success'] == true) {
+        final list = data['data'] ?? data['properties'] ?? [];
+        if (list is List) {
+          return list
+              .map((e) => Map<String, dynamic>.from(e))
+              .where((p) => (p['_id']?.toString() ?? p['propertyId']?.toString()) != currentPropertyId)
+              .toList();
+        }
+      }
+      return [];
+    } on DioException catch (e, st) {
+      AppLogger.e('Similar properties request failed', e, st);
+      return [];
+    }
+  }
+
   /// GET /api/v1/user/dashboard-header
   Future<BuerDashboardModel> getDashboardHeader() async {
     try {

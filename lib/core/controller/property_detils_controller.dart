@@ -18,11 +18,15 @@ class PropertyDetailsController extends GetxController {
   final RxnString error = RxnString();
   final RxMap<String, dynamic> property = <String, dynamic>{}.obs;
   final RxBool isFavorite = false.obs;
+  // Reactive list for similar properties
+  final RxList<Map<String, dynamic>> similarProperties = <Map<String, dynamic>>[].obs;
+  final RxBool isSimilarLoading = false.obs;
 
   @override
   void onInit() {
     super.onInit();
     _initializePropertyData();
+    fetchSimilarProperties();
   }
 
   void _initializePropertyData() {
@@ -47,6 +51,29 @@ class PropertyDetailsController extends GetxController {
       AppLogger.w('Invalid or null navigation arguments received: $args');
       error.value = 'Invalid navigation arguments.';
       isLoading.value = false;
+    }
+  }
+
+
+  // Property details load hone ke baad ya onInit mein ise call karein
+  Future<void> fetchSimilarProperties() async {
+    try {
+      isSimilarLoading.value = true;
+      final category = property['category']?.toString();
+      final city = property['city']?.toString();
+      final currentId = property['_id']?.toString() ?? property['propertyId']?.toString() ?? '';
+
+      final results = await _homeRepository.getSimilarProperties(
+        category: category,
+        city: city,
+        currentPropertyId: currentId,
+      );
+
+      similarProperties.value = results;
+    } catch (e) {
+      AppLogger.e('Error loading similar properties: $e');
+    } finally {
+      isSimilarLoading.value = false;
     }
   }
 

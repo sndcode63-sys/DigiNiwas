@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
-import 'package:diginiwas/features/auth/presentation/buyer_section/property_details_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/save_properties_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_screen.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +14,7 @@ import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/routes/app_routes.dart';
+import '../../../../core/utils/app_utils.dart';
 import '../../../../core/utils/shimmer.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../data/view_all_repository.dart';
@@ -23,11 +22,7 @@ import 'exprole_name.dart';
 import 'niwas_ai_section.dart';
 import 'view_all_screen.dart';
 
-// ---------------------------------------------------------------------
-// SHARED AMENITY MARKER STYLING
-// Top-level so both HomeScreen's inline map and the full-screen
-// ExploreMapViewScreen render markers identically.
-// ---------------------------------------------------------------------
+
 Color _amenityColor(String? markerType) {
   switch (markerType) {
     case 'EDUCATION':
@@ -734,7 +729,7 @@ class HomeScreen extends StatelessWidget {
     required Map<String, dynamic> Function(int) jsonAt,
   }) {
     return SizedBox(
-      height: 380.h,
+      height: 360.h,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -1139,7 +1134,6 @@ class HomeScreen extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
           final item = listings[index];
-          // ✅ Yeh ab neeche defined widget ko call karega jo automatically slide karega
           return NewListingCard(
             item: item,
             onTap: () => Get.toNamed(AppRoutes.propertyDetails, arguments: {'property': item.toJson()}),
@@ -2597,8 +2591,12 @@ class NewListingCardState extends State<NewListingCard> {
                   ),
                   SizedBox(height: 6.h),
                   Text(
-                    '₹ ${item.price ?? 0}',
-                    style: GoogleFonts.poppins(fontSize: 13.5.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                    formatPrice(item.price),
+                    style: GoogleFonts.poppins(
+                      fontSize: 13.5.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
                   ),
                 ],
               ),
@@ -2824,6 +2822,7 @@ class RecommendedPropertyCardState extends State<RecommendedPropertyCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+
                 Text(
                   widget.title ?? 'Property',
                   maxLines: 1,
@@ -2841,6 +2840,15 @@ class RecommendedPropertyCardState extends State<RecommendedPropertyCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B)),
+                      ),
+                    ),
+                    Text(
+                      formatPrice(widget.price),
+                      style: GoogleFonts.poppins(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                        letterSpacing: -0.3,
                       ),
                     ),
                   ],
@@ -2861,11 +2869,7 @@ class RecommendedPropertyCardState extends State<RecommendedPropertyCard> {
                     ),
                   ],
                 ),
-                SizedBox(height: 6.h),
-                Text(
-                  '₹ ${widget.price ?? 0}',
-                  style: GoogleFonts.poppins(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), letterSpacing: -0.3),
-                ),
+
               ],
             ),
           ),
