@@ -4,7 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_service.dart';
 import '../../../../core/routes/app_routes.dart';
-import '../../../../core/utils/app_logger.dart'; // Ensure app_logger is imported
+import '../../../../core/utils/app_logger.dart';
 import '../../features/auth/data/home_repository.dart';
 
 class PropertyDetailsController extends GetxController {
@@ -53,7 +53,6 @@ class PropertyDetailsController extends GetxController {
       isLoading.value = false;
     }
   }
-
 
   // Property details load hone ke baad ya onInit mein ise call karein
   Future<void> fetchSimilarProperties() async {

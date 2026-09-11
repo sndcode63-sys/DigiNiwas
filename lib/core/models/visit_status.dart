@@ -1,17 +1,18 @@
-class visitStatus {
+// GET /visits/:id response model
+class VisitStatusModel {
   bool? success;
-  Data? data;
+  VisitStatusData? data;
 
-  visitStatus({this.success, this.data});
+  VisitStatusModel({this.success, this.data});
 
-  visitStatus.fromJson(Map<String, dynamic> json) {
+  VisitStatusModel.fromJson(Map<String, dynamic> json) {
     success = json['success'];
-    data = json['data'] != null ? new Data.fromJson(json['data']) : null;
+    data = json['data'] != null ? VisitStatusData.fromJson(json['data']) : null;
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['success'] = this.success;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['success'] = success;
     if (this.data != null) {
       data['data'] = this.data!.toJson();
     }
@@ -19,21 +20,21 @@ class visitStatus {
   }
 }
 
-class Data {
+class VisitStatusData {
   String? sId;
   String? visitId;
   String? propertyId;
   String? buyerId;
   String? partnerId;
-  Null? leadId;
-  BuyerSnapshot? buyerSnapshot;
-  PropertySnapshot? propertySnapshot;
-  PartnerSnapshot? partnerSnapshot;
+  String? leadId;
+  VisitBuyerSnapshot? buyerSnapshot;
+  VisitPropertySnapshot? propertySnapshot;
+  VisitPartnerSnapshot? partnerSnapshot;
   String? requestedVisitAt;
-  Null? approvedVisitAt;
-  Null? completedAt;
+  String? approvedVisitAt;
+  String? completedAt;
   String? requestSource;
-  Null? teamOwnerId;
+  String? teamOwnerId;
   String? teamApprovalStatus;
   String? teamRemarks;
   String? forwardedToAdminAt;
@@ -43,71 +44,72 @@ class Data {
   String? requestNotes;
   String? adminRemarks;
   String? partnerRemarks;
-  Null? followUpAt;
+  String? followUpAt;
   String? rescheduleReason;
   String? cancellationReason;
-  RequestedBy? requestedBy;
-  ApprovedBy? approvedBy;
-  List<History>? history;
+  VisitRequestedBy? requestedBy;
+  VisitApprovedBy? approvedBy;
+  List<VisitHistory>? history;
   String? createdAt;
   String? updatedAt;
   int? iV;
 
-  Data(
-      {this.sId,
-        this.visitId,
-        this.propertyId,
-        this.buyerId,
-        this.partnerId,
-        this.leadId,
-        this.buyerSnapshot,
-        this.propertySnapshot,
-        this.partnerSnapshot,
-        this.requestedVisitAt,
-        this.approvedVisitAt,
-        this.completedAt,
-        this.requestSource,
-        this.teamOwnerId,
-        this.teamApprovalStatus,
-        this.teamRemarks,
-        this.forwardedToAdminAt,
-        this.approvalStatus,
-        this.status,
-        this.outcome,
-        this.requestNotes,
-        this.adminRemarks,
-        this.partnerRemarks,
-        this.followUpAt,
-        this.rescheduleReason,
-        this.cancellationReason,
-        this.requestedBy,
-        this.approvedBy,
-        this.history,
-        this.createdAt,
-        this.updatedAt,
-        this.iV});
+  VisitStatusData({
+    this.sId,
+    this.visitId,
+    this.propertyId,
+    this.buyerId,
+    this.partnerId,
+    this.leadId,
+    this.buyerSnapshot,
+    this.propertySnapshot,
+    this.partnerSnapshot,
+    this.requestedVisitAt,
+    this.approvedVisitAt,
+    this.completedAt,
+    this.requestSource,
+    this.teamOwnerId,
+    this.teamApprovalStatus,
+    this.teamRemarks,
+    this.forwardedToAdminAt,
+    this.approvalStatus,
+    this.status,
+    this.outcome,
+    this.requestNotes,
+    this.adminRemarks,
+    this.partnerRemarks,
+    this.followUpAt,
+    this.rescheduleReason,
+    this.cancellationReason,
+    this.requestedBy,
+    this.approvedBy,
+    this.history,
+    this.createdAt,
+    this.updatedAt,
+    this.iV,
+  });
 
-  Data.fromJson(Map<String, dynamic> json) {
+  VisitStatusData.fromJson(Map<String, dynamic> json) {
     sId = json['_id'];
     visitId = json['visitId'];
     propertyId = json['propertyId'];
     buyerId = json['buyerId'];
     partnerId = json['partnerId'];
-    leadId = json['leadId'];
+    leadId = json['leadId']?.toString();
     buyerSnapshot = json['buyerSnapshot'] != null
-        ? new BuyerSnapshot.fromJson(json['buyerSnapshot'])
+        ? VisitBuyerSnapshot.fromJson(json['buyerSnapshot'])
         : null;
     propertySnapshot = json['propertySnapshot'] != null
-        ? new PropertySnapshot.fromJson(json['propertySnapshot'])
+        ? VisitPropertySnapshot.fromJson(json['propertySnapshot'])
         : null;
     partnerSnapshot = json['partnerSnapshot'] != null
-        ? new PartnerSnapshot.fromJson(json['partnerSnapshot'])
+        ? VisitPartnerSnapshot.fromJson(json['partnerSnapshot'])
         : null;
     requestedVisitAt = json['requestedVisitAt'];
-    approvedVisitAt = json['approvedVisitAt'];
-    completedAt = json['completedAt'];
+    approvedVisitAt = json['approvedVisitAt']?.toString();
+    completedAt = json['completedAt']?.toString();
     requestSource = json['requestSource'];
-    teamOwnerId = json['teamOwnerId'];
+    teamOwnerId = json['teamOwnerId']?.toString();
     teamApprovalStatus = json['teamApprovalStatus'];
     teamRemarks = json['teamRemarks'];
     forwardedToAdminAt = json['forwardedToAdminAt'];
@@ -117,19 +119,19 @@ class Data {
     requestNotes = json['requestNotes'];
     adminRemarks = json['adminRemarks'];
     partnerRemarks = json['partnerRemarks'];
-    followUpAt = json['followUpAt'];
+    followUpAt = json['followUpAt']?.toString();
     rescheduleReason = json['rescheduleReason'];
     cancellationReason = json['cancellationReason'];
     requestedBy = json['requestedBy'] != null
-        ? new RequestedBy.fromJson(json['requestedBy'])
+        ? VisitRequestedBy.fromJson(json['requestedBy'])
         : null;
     approvedBy = json['approvedBy'] != null
-        ? new ApprovedBy.fromJson(json['approvedBy'])
+        ? VisitApprovedBy.fromJson(json['approvedBy'])
         : null;
     if (json['history'] != null) {
-      history = <History>[];
-      json['history'].forEach((v) {
-        history!.add(new History.fromJson(v));
+      history = <VisitHistory>[];
+      (json['history'] as List).forEach((v) {
+        history!.add(VisitHistory.fromJson(v));
       });
     }
     createdAt = json['createdAt'];
@@ -138,65 +140,53 @@ class Data {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['_id'] = this.sId;
-    data['visitId'] = this.visitId;
-    data['propertyId'] = this.propertyId;
-    data['buyerId'] = this.buyerId;
-    data['partnerId'] = this.partnerId;
-    data['leadId'] = this.leadId;
-    if (this.buyerSnapshot != null) {
-      data['buyerSnapshot'] = this.buyerSnapshot!.toJson();
-    }
-    if (this.propertySnapshot != null) {
-      data['propertySnapshot'] = this.propertySnapshot!.toJson();
-    }
-    if (this.partnerSnapshot != null) {
-      data['partnerSnapshot'] = this.partnerSnapshot!.toJson();
-    }
-    data['requestedVisitAt'] = this.requestedVisitAt;
-    data['approvedVisitAt'] = this.approvedVisitAt;
-    data['completedAt'] = this.completedAt;
-    data['requestSource'] = this.requestSource;
-    data['teamOwnerId'] = this.teamOwnerId;
-    data['teamApprovalStatus'] = this.teamApprovalStatus;
-    data['teamRemarks'] = this.teamRemarks;
-    data['forwardedToAdminAt'] = this.forwardedToAdminAt;
-    data['approvalStatus'] = this.approvalStatus;
-    data['status'] = this.status;
-    data['outcome'] = this.outcome;
-    data['requestNotes'] = this.requestNotes;
-    data['adminRemarks'] = this.adminRemarks;
-    data['partnerRemarks'] = this.partnerRemarks;
-    data['followUpAt'] = this.followUpAt;
-    data['rescheduleReason'] = this.rescheduleReason;
-    data['cancellationReason'] = this.cancellationReason;
-    if (this.requestedBy != null) {
-      data['requestedBy'] = this.requestedBy!.toJson();
-    }
-    if (this.approvedBy != null) {
-      data['approvedBy'] = this.approvedBy!.toJson();
-    }
-    if (this.history != null) {
-      data['history'] = this.history!.map((v) => v.toJson()).toList();
-    }
-    data['createdAt'] = this.createdAt;
-    data['updatedAt'] = this.updatedAt;
-    data['__v'] = this.iV;
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['_id'] = sId;
+    data['visitId'] = visitId;
+    data['propertyId'] = propertyId;
+    data['buyerId'] = buyerId;
+    data['partnerId'] = partnerId;
+    data['leadId'] = leadId;
+    if (buyerSnapshot != null) data['buyerSnapshot'] = buyerSnapshot!.toJson();
+    if (propertySnapshot != null) data['propertySnapshot'] = propertySnapshot!.toJson();
+    if (partnerSnapshot != null) data['partnerSnapshot'] = partnerSnapshot!.toJson();
+    data['requestedVisitAt'] = requestedVisitAt;
+    data['approvedVisitAt'] = approvedVisitAt;
+    data['completedAt'] = completedAt;
+    data['requestSource'] = requestSource;
+    data['teamOwnerId'] = teamOwnerId;
+    data['teamApprovalStatus'] = teamApprovalStatus;
+    data['teamRemarks'] = teamRemarks;
+    data['forwardedToAdminAt'] = forwardedToAdminAt;
+    data['approvalStatus'] = approvalStatus;
+    data['status'] = status;
+    data['outcome'] = outcome;
+    data['requestNotes'] = requestNotes;
+    data['adminRemarks'] = adminRemarks;
+    data['partnerRemarks'] = partnerRemarks;
+    data['followUpAt'] = followUpAt;
+    data['rescheduleReason'] = rescheduleReason;
+    data['cancellationReason'] = cancellationReason;
+    if (requestedBy != null) data['requestedBy'] = requestedBy!.toJson();
+    if (approvedBy != null) data['approvedBy'] = approvedBy!.toJson();
+    if (history != null) data['history'] = history!.map((v) => v.toJson()).toList();
+    data['createdAt'] = createdAt;
+    data['updatedAt'] = updatedAt;
+    data['__v'] = iV;
     return data;
   }
 }
 
-class BuyerSnapshot {
+class VisitBuyerSnapshot {
   String? buyerCode;
   String? name;
   String? phone;
   String? email;
   String? city;
 
-  BuyerSnapshot({this.buyerCode, this.name, this.phone, this.email, this.city});
+  VisitBuyerSnapshot({this.buyerCode, this.name, this.phone, this.email, this.city});
 
-  BuyerSnapshot.fromJson(Map<String, dynamic> json) {
+  VisitBuyerSnapshot.fromJson(Map<String, dynamic> json) {
     buyerCode = json['buyerCode'];
     name = json['name'];
     phone = json['phone'];
@@ -204,18 +194,16 @@ class BuyerSnapshot {
     city = json['city'];
   }
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['buyerCode'] = this.buyerCode;
-    data['name'] = this.name;
-    data['phone'] = this.phone;
-    data['email'] = this.email;
-    data['city'] = this.city;
-    return data;
-  }
+  Map<String, dynamic> toJson() => {
+    'buyerCode': buyerCode,
+    'name': name,
+    'phone': phone,
+    'email': email,
+    'city': city,
+  };
 }
 
-class PropertySnapshot {
+class VisitPropertySnapshot {
   String? propertyCode;
   String? title;
   String? projectName;
@@ -227,19 +215,20 @@ class PropertySnapshot {
   double? latitude;
   double? longitude;
 
-  PropertySnapshot(
-      {this.propertyCode,
-        this.title,
-        this.projectName,
-        this.category,
-        this.city,
-        this.locality,
-        this.address,
-        this.image,
-        this.latitude,
-        this.longitude});
+  VisitPropertySnapshot({
+    this.propertyCode,
+    this.title,
+    this.projectName,
+    this.category,
+    this.city,
+    this.locality,
+    this.address,
+    this.image,
+    this.latitude,
+    this.longitude,
+  });
 
-  PropertySnapshot.fromJson(Map<String, dynamic> json) {
+  VisitPropertySnapshot.fromJson(Map<String, dynamic> json) {
     propertyCode = json['propertyCode'];
     title = json['title'];
     projectName = json['projectName'];
@@ -248,37 +237,34 @@ class PropertySnapshot {
     locality = json['locality'];
     address = json['address'];
     image = json['image'];
-    latitude = json['latitude'];
-    longitude = json['longitude'];
+    latitude = (json['latitude'] as num?)?.toDouble();
+    longitude = (json['longitude'] as num?)?.toDouble();
   }
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['propertyCode'] = this.propertyCode;
-    data['title'] = this.title;
-    data['projectName'] = this.projectName;
-    data['category'] = this.category;
-    data['city'] = this.city;
-    data['locality'] = this.locality;
-    data['address'] = this.address;
-    data['image'] = this.image;
-    data['latitude'] = this.latitude;
-    data['longitude'] = this.longitude;
-    return data;
-  }
+  Map<String, dynamic> toJson() => {
+    'propertyCode': propertyCode,
+    'title': title,
+    'projectName': projectName,
+    'category': category,
+    'city': city,
+    'locality': locality,
+    'address': address,
+    'image': image,
+    'latitude': latitude,
+    'longitude': longitude,
+  };
 }
 
-class PartnerSnapshot {
+class VisitPartnerSnapshot {
   String? partnerCode;
   String? name;
   String? phone;
   String? email;
   String? partnerType;
 
-  PartnerSnapshot(
-      {this.partnerCode, this.name, this.phone, this.email, this.partnerType});
+  VisitPartnerSnapshot({this.partnerCode, this.name, this.phone, this.email, this.partnerType});
 
-  PartnerSnapshot.fromJson(Map<String, dynamic> json) {
+  VisitPartnerSnapshot.fromJson(Map<String, dynamic> json) {
     partnerCode = json['partnerCode'];
     name = json['name'];
     phone = json['phone'];
@@ -286,105 +272,94 @@ class PartnerSnapshot {
     partnerType = json['partnerType'];
   }
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['partnerCode'] = this.partnerCode;
-    data['name'] = this.name;
-    data['phone'] = this.phone;
-    data['email'] = this.email;
-    data['partnerType'] = this.partnerType;
-    return data;
-  }
+  Map<String, dynamic> toJson() => {
+    'partnerCode': partnerCode,
+    'name': name,
+    'phone': phone,
+    'email': email,
+    'partnerType': partnerType,
+  };
 }
 
-class RequestedBy {
+class VisitRequestedBy {
   String? userId;
   String? name;
   String? role;
 
-  RequestedBy({this.userId, this.name, this.role});
+  VisitRequestedBy({this.userId, this.name, this.role});
 
-  RequestedBy.fromJson(Map<String, dynamic> json) {
+  VisitRequestedBy.fromJson(Map<String, dynamic> json) {
     userId = json['userId'];
     name = json['name'];
     role = json['role'];
   }
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['userId'] = this.userId;
-    data['name'] = this.name;
-    data['role'] = this.role;
-    return data;
-  }
+  Map<String, dynamic> toJson() => {
+    'userId': userId,
+    'name': name,
+    'role': role,
+  };
 }
 
-class ApprovedBy {
-  Null? userId;
+class VisitApprovedBy {
+  String? userId;
   String? name;
   String? role;
-  Null? approvedAt;
+  String? approvedAt;
 
-  ApprovedBy({this.userId, this.name, this.role, this.approvedAt});
+  VisitApprovedBy({this.userId, this.name, this.role, this.approvedAt});
 
-  ApprovedBy.fromJson(Map<String, dynamic> json) {
-    userId = json['userId'];
+  VisitApprovedBy.fromJson(Map<String, dynamic> json) {
+    userId = json['userId']?.toString();
     name = json['name'];
     role = json['role'];
-    approvedAt = json['approvedAt'];
+    approvedAt = json['approvedAt']?.toString();
   }
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['userId'] = this.userId;
-    data['name'] = this.name;
-    data['role'] = this.role;
-    data['approvedAt'] = this.approvedAt;
-    return data;
-  }
+  Map<String, dynamic> toJson() => {
+    'userId': userId,
+    'name': name,
+    'role': role,
+    'approvedAt': approvedAt,
+  };
 }
 
-class History {
+class VisitHistory {
   String? action;
   String? fromStatus;
   String? toStatus;
   String? remarks;
-  RequestedBy? updatedBy;
+  VisitRequestedBy? updatedBy;
   String? sId;
   String? updatedAt;
 
-  History(
-      {this.action,
-        this.fromStatus,
-        this.toStatus,
-        this.remarks,
-        this.updatedBy,
-        this.sId,
-        this.updatedAt});
+  VisitHistory({
+    this.action,
+    this.fromStatus,
+    this.toStatus,
+    this.remarks,
+    this.updatedBy,
+    this.sId,
+    this.updatedAt,
+  });
 
-  History.fromJson(Map<String, dynamic> json) {
+  VisitHistory.fromJson(Map<String, dynamic> json) {
     action = json['action'];
     fromStatus = json['fromStatus'];
     toStatus = json['toStatus'];
     remarks = json['remarks'];
-    updatedBy = json['updatedBy'] != null
-        ? new RequestedBy.fromJson(json['updatedBy'])
-        : null;
+    updatedBy = json['updatedBy'] != null ? VisitRequestedBy.fromJson(json['updatedBy']) : null;
     sId = json['_id'];
     updatedAt = json['updatedAt'];
   }
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['action'] = this.action;
-    data['fromStatus'] = this.fromStatus;
-    data['toStatus'] = this.toStatus;
-    data['remarks'] = this.remarks;
-    if (this.updatedBy != null) {
-      data['updatedBy'] = this.updatedBy!.toJson();
-    }
-    data['_id'] = this.sId;
-    data['updatedAt'] = this.updatedAt;
-    return data;
-  }
+  Map<String, dynamic> toJson() => {
+    'action': action,
+    'fromStatus': fromStatus,
+    'toStatus': toStatus,
+    'remarks': remarks,
+    if (updatedBy != null) 'updatedBy': updatedBy!.toJson(),
+    '_id': sId,
+    'updatedAt': updatedAt,
+  };
 }

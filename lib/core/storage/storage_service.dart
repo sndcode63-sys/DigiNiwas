@@ -65,6 +65,33 @@ class StorageService {
   }
 
   // -----------------------------------------------------------------
+  // VISIT TRACKING — locally remembers which visit IDs belong to this
+  // device/user so ScheduledVisitsScreen can look up their live status
+  // one by one (no "list my visits" endpoint was provided).
+  // -----------------------------------------------------------------
+  Future<void> addVisitId(String visitId) async {
+    if (visitId.isEmpty) return;
+    final prefs = await _prefs;
+    final list = prefs.getStringList(StorageKeys.visitIds) ?? <String>[];
+    if (!list.contains(visitId)) {
+      list.insert(0, visitId); // newest first
+      await prefs.setStringList(StorageKeys.visitIds, list);
+    }
+  }
+
+  Future<List<String>> getVisitIds() async {
+    final prefs = await _prefs;
+    return prefs.getStringList(StorageKeys.visitIds) ?? <String>[];
+  }
+
+  Future<void> removeVisitId(String visitId) async {
+    final prefs = await _prefs;
+    final list = prefs.getStringList(StorageKeys.visitIds) ?? <String>[];
+    list.remove(visitId);
+    await prefs.setStringList(StorageKeys.visitIds, list);
+  }
+
+  // -----------------------------------------------------------------
   // READ helpers
   // -----------------------------------------------------------------
   Future<String?> get token async => (await _prefs).getString(StorageKeys.token);
@@ -96,6 +123,8 @@ class StorageService {
     await prefs.setBool(StorageKeys.isLoggedIn, false);
     // Deliberately keep lastLat/lastLng — still useful as a default
     // map center even after logout.
+    // Deliberately keep visitIds too — visit history isn't tied to the
+    // active session in this app's flows.
   }
 
   Future<void> _writeOrRemove(SharedPreferences prefs, String key, String? value) async {
@@ -123,4 +152,5 @@ class StorageKeys {
   static const String isLoggedIn = 'is_logged_in';
   static const String lastLat = 'last_lat';
   static const String lastLng = 'last_lng';
+  static const String visitIds = 'visit_ids';
 }
