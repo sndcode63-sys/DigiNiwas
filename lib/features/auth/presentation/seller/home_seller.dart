@@ -1,11 +1,18 @@
-import 'package:diginiwas/features/auth/presentation/seller/seller_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/models/seller_home_feed_model.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/shimmer.dart';
+import '../../../../core/widgets/app_image.dart';
+import '../../../../core/widgets/app_toast.dart';
+import '../../../seller/controller/seller_controller.dart';
 import 'add_property_flow_screen.dart';
 import 'my_partner.dart';
+import 'seller_profile_screen.dart';
 
 class SellerHomeScreen extends StatefulWidget {
   const SellerHomeScreen({super.key});
@@ -17,12 +24,19 @@ class SellerHomeScreen extends StatefulWidget {
 class _SellerHomeScreenState extends State<SellerHomeScreen> {
   int _currentIndex = 0;
 
+  // Shared across every tab of the Seller section for this screen's
+  // lifetime, so switching tabs doesn't re-fetch the dashboard.
+  late final SellerController _controller;
+
   // List of screens corresponding to the 5 bottom navigation bar items
   late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
+    _controller = Get.put(SellerController(), tag: 'sellerHome');
+    _controller.loadSellerHome();
+
     _screens = [
       _buildHomeBodyContent(), // Index 0: Home
       const AddPropertyFlowScreen(), // Index 1: Properties
@@ -30,6 +44,12 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
       const _PlaceholderScreen(title: 'Updates Screen'), // Index 3: Updates
       const SellerProfileScreen(),
     ];
+  }
+
+  @override
+  void dispose() {
+    Get.delete<SellerController>(tag: 'sellerHome');
+    super.dispose();
   }
 
   @override
@@ -46,45 +66,130 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
     );
   }
 
-  // Extracted Home Body Content from your original code
+  // Extracted Home Body Content — now fully data-driven from SellerController.
   Widget _buildHomeBodyContent() {
     return SafeArea(
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Obx(() {
+        final isFirstLoad = _controller.isHomeLoading.value && _controller.sellerProfile.value == null;
+
+        return RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () => _controller.loadSellerHome(silent: true),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Header (Logo & Icons)
+                _buildHeader(),
+                SizedBox(height: 20.h),
+
+                if (isFirstLoad) ...[
+                  _buildHomeSkeleton(),
+                ] else ...[
+                  if (_controller.homeError.value.isNotEmpty) ...[
+                    _buildErrorBanner(),
+                    SizedBox(height: 16.h),
+                  ],
+
+                  // Welcome Banner Card
+                  _buildWelcomeCard(),
+                  SizedBox(height: 20.h),
+
+                  // 4 Stat Grids
+                  _buildStatGrids(),
+                  SizedBox(height: 24.h),
+
+                  // Your DigiNiwas Partner Card
+                  _buildPartnerSection(),
+                  SizedBox(height: 20.h),
+
+                  // Property Progress Tracking Card
+                  if (_controller.progressProperty.value != null) ...[
+                    _buildPropertyProgressCard(_controller.progressProperty.value!),
+                    SizedBox(height: 20.h),
+                  ] else if (_controller.properties.isEmpty) ...[
+                    _buildNoPropertiesCard(),
+                    SizedBox(height: 20.h),
+                  ],
+
+                  // Niwas AI Suggestion Box
+                  if (_controller.aiSuggestionAvailable.value) ...[
+                    _buildAiSuggestionCard(),
+                    SizedBox(height: 24.h),
+                  ],
+
+                  // Recent Partner Updates Section
+                  _buildRecentUpdatesSection(),
+                ],
+
+                SizedBox(height: 110.h), // Bottom spacing for navigation bar
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(14.r),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3F0),
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: Colors.redAccent.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              _controller.homeError.value,
+              style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w600, color: Colors.redAccent),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _controller.loadSellerHome(),
+            child: Text(
+              'Retry',
+              style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w800, color: Colors.redAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeSkeleton() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ShimmerWidget.box(width: double.infinity, height: 150.h, borderRadius: 20.r),
+        SizedBox(height: 20.h),
+        Row(
           children: [
-            // Top Header (Logo & Icons)
-            _buildHeader(),
-            SizedBox(height: 20.h),
-
-            // Welcome Banner Card
-            _buildWelcomeCard(),
-            SizedBox(height: 20.h),
-
-            // 4 Stat Grids
-            _buildStatGrids(),
-            SizedBox(height: 24.h),
-
-            // Your DigiNiwas Partner Card
-            _buildPartnerSection(),
-            SizedBox(height: 20.h),
-
-            // Property Progress Tracking Card
-            _buildPropertyProgressCard(),
-            SizedBox(height: 20.h),
-
-            // Niwas AI Suggestion Box
-            _buildAiSuggestionCard(),
-            SizedBox(height: 24.h),
-
-            // Recent Partner Updates Section
-            _buildRecentUpdatesSection(),
-            SizedBox(height: 110.h), // Bottom spacing for navigation bar
+            Expanded(child: ShimmerWidget.box(height: 90.h, borderRadius: 16.r)),
+            SizedBox(width: 12.w),
+            Expanded(child: ShimmerWidget.box(height: 90.h, borderRadius: 16.r)),
           ],
         ),
-      ),
+        SizedBox(height: 12.h),
+        Row(
+          children: [
+            Expanded(child: ShimmerWidget.box(height: 90.h, borderRadius: 16.r)),
+            SizedBox(width: 12.w),
+            Expanded(child: ShimmerWidget.box(height: 90.h, borderRadius: 16.r)),
+          ],
+        ),
+        SizedBox(height: 20.h),
+        ShimmerWidget.box(width: double.infinity, height: 140.h, borderRadius: 18.r),
+        SizedBox(height: 20.h),
+        ShimmerWidget.box(width: double.infinity, height: 130.h, borderRadius: 18.r),
+      ],
     );
   }
 
@@ -127,32 +232,47 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
               child: Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 20.sp),
             ),
             SizedBox(width: 12.w),
-            Container(
-              width: 36.w,
-              height: 36.h,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  'AA',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.white,
+            Obx(() {
+              final name = _controller.sellerProfile.value?.name ?? '';
+              return Container(
+                width: 36.w,
+                height: 36.h,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    _initialsOf(name),
+                    style: GoogleFonts.poppins(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white,
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ],
     );
   }
 
+  String _initialsOf(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+  }
+
   // Welcome Banner Card
   Widget _buildWelcomeCard() {
+    final profile = _controller.sellerProfile.value;
+    final name = (profile?.name.isNotEmpty ?? false) ? profile!.name : 'there';
+    final isVerified = profile?.isVerified ?? false;
+    final updatesCount = _controller.recentUpdates.length;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20.r),
@@ -164,7 +284,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Welcome, Aaryan',
+            'Welcome, $name',
             style: GoogleFonts.poppins(
               fontSize: 22.sp,
               fontWeight: FontWeight.w800,
@@ -181,10 +301,14 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.verified_rounded, color: AppColors.primary, size: 14.sp),
+                Icon(
+                  isVerified ? Icons.verified_rounded : Icons.hourglass_top_rounded,
+                  color: AppColors.primary,
+                  size: 14.sp,
+                ),
                 SizedBox(width: 4.w),
                 Text(
-                  'Verified Owner',
+                  isVerified ? 'Verified Owner' : 'Verification Pending',
                   style: GoogleFonts.poppins(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w700,
@@ -196,7 +320,9 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
           ),
           SizedBox(height: 12.h),
           Text(
-            'Your DigiNiwas Partner has 3 updates for you.',
+            updatesCount > 0
+                ? 'Your DigiNiwas Partner has $updatesCount update${updatesCount == 1 ? '' : 's'} for you.'
+                : "You're all caught up — no new updates right now.",
             style: GoogleFonts.poppins(
               fontSize: 13.sp,
               height: 1.4,
@@ -219,70 +345,104 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
       physics: const NeverScrollableScrollPhysics(),
       childAspectRatio: 1.65,
       children: [
-        _buildStatCard(title: 'My Listings', count: '3', icon: Icons.description_outlined),
-        _buildStatCard(title: 'Partner Review', count: '1', icon: Icons.star_border_rounded),
-        _buildStatCard(title: 'Buyer Interest', count: '18', icon: Icons.people_outline_rounded),
-        _buildStatCard(title: 'Offers to Review', count: '2', icon: Icons.local_offer_outlined),
+        _buildStatCard(
+          title: 'My Listings',
+          count: '${_controller.myListingsCount.value}',
+          icon: Icons.description_outlined,
+          onTap: () => setState(() => _currentIndex = 1),
+        ),
+        _buildStatCard(
+          title: 'Partner Review',
+          count: '${_controller.partnerReviewCount.value}',
+          icon: Icons.star_border_rounded,
+          onTap: () => setState(() => _currentIndex = 1),
+        ),
+        _buildStatCard(
+          title: 'Buyer Interest',
+          count: '${_controller.buyerInterestCount.value}',
+          icon: Icons.people_outline_rounded,
+        ),
+        _buildStatCard(
+          title: 'Offers to Review',
+          count: '${_controller.offersToReviewCount.value}',
+          icon: Icons.local_offer_outlined,
+        ),
       ],
     );
   }
 
-  Widget _buildStatCard({required String title, required String count, required IconData icon}) {
-    return Container(
-      padding: EdgeInsets.all(14.r),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.textSecondary.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(8.r),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF5F1),
-                  borderRadius: BorderRadius.circular(10.r),
+  Widget _buildStatCard({
+    required String title,
+    required String count,
+    required IconData icon,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16.r),
+      child: Container(
+        padding: EdgeInsets.all(14.r),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.textSecondary.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8.r),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF5F1),
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Icon(icon, color: AppColors.primary, size: 20.sp),
                 ),
-                child: Icon(icon, color: AppColors.primary, size: 20.sp),
-              ),
-              SizedBox(width: 10.w),
-              Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          Text(
-            count,
-            style: GoogleFonts.poppins(
-              fontSize: 20.sp,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              ],
             ),
-          ),
-        ],
+            Text(
+              count,
+              style: GoogleFonts.poppins(
+                fontSize: 20.sp,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   // Partner Section
   Widget _buildPartnerSection() {
+    final property = _controller.progressProperty.value;
+    final hasPartner = property?.partnerId != null && property!.partnerId!.isNotEmpty;
+    final partnerName = property?.partnerName ?? 'Not assigned yet';
+    final partnerLocality = property?.partnerLocality;
+    final isOnline = property?.partnerOnline == true;
+    final isVerified = property?.partnerVerified ?? false;
+
     return Container(
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
@@ -312,34 +472,30 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
             children: [
               Stack(
                 children: [
-                  Container(
+                  ImageCase(
+                    url: property?.partnerAvatarUrl,
                     width: 50.w,
                     height: 50.h,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.grey.shade300,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(50.r),
-                      child: Icon(Icons.person, size: 30.sp, color: Colors.grey.shade700),
-                    ),
+                    fallbackIcon: Icons.person,
+                    borderRadius: BorderRadius.circular(50.r),
                   ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(10.r),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      child: Text(
-                        'Online',
-                        style: GoogleFonts.poppins(fontSize: 7.sp, color: Colors.white, fontWeight: FontWeight.bold),
+                  if (isOnline)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(10.r),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: Text(
+                          'Online',
+                          style: GoogleFonts.poppins(fontSize: 7.sp, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
               SizedBox(width: 12.w),
@@ -349,31 +505,38 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          'Arjun Khanna',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF5F1),
-                            borderRadius: BorderRadius.circular(6.r),
-                          ),
+                        Flexible(
                           child: Text(
-                            'Verified Partner',
-                            style: GoogleFonts.poppins(fontSize: 8.sp, fontWeight: FontWeight.w700, color: AppColors.primary),
+                            partnerName,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
+                        if (isVerified) ...[
+                          SizedBox(width: 8.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAF5F1),
+                              borderRadius: BorderRadius.circular(6.r),
+                            ),
+                            child: Text(
+                              'Verified Partner',
+                              style: GoogleFonts.poppins(fontSize: 8.sp, fontWeight: FontWeight.w700, color: AppColors.primary),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      'Local property expert • Ambala',
+                      hasPartner
+                          ? 'Local property expert${partnerLocality != null ? ' • $partnerLocality' : ''}'
+                          : 'You will be matched with a partner once your property is submitted.',
                       style: GoogleFonts.poppins(
                         fontSize: 11.sp,
                         fontWeight: FontWeight.w500,
@@ -390,9 +553,10 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: hasPartner ? () => _openWhatsApp(property?.partnerPhone) : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
+                    disabledBackgroundColor: Colors.grey.shade300,
                     elevation: 0,
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
@@ -407,16 +571,20 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
               SizedBox(width: 12.w),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: hasPartner ? () => _callPartner(property?.partnerPhone) : null,
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AppColors.primary, width: 1.2),
+                    side: BorderSide(color: hasPartner ? AppColors.primary : Colors.grey.shade300, width: 1.2),
                     padding: EdgeInsets.symmetric(vertical: 12.h),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                   ),
-                  icon: Icon(Icons.phone_outlined, color: AppColors.primary, size: 16.sp),
+                  icon: Icon(Icons.phone_outlined, color: hasPartner ? AppColors.primary : Colors.grey, size: 16.sp),
                   label: Text(
                     'Call Partner',
-                    style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.primary),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w700,
+                      color: hasPartner ? AppColors.primary : Colors.grey,
+                    ),
                   ),
                 ),
               ),
@@ -427,8 +595,78 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
     );
   }
 
+  Future<void> _callPartner(String? phone) async {
+    if (phone == null || phone.trim().isEmpty) {
+      AppToast.error(context, "Partner's phone number isn't available yet.");
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: phone.trim());
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      AppToast.error(context, 'Could not open the dialer.');
+    }
+  }
+
+  Future<void> _openWhatsApp(String? phone) async {
+    if (phone == null || phone.trim().isEmpty) {
+      AppToast.error(context, "Partner's contact isn't available yet.");
+      return;
+    }
+    final digits = phone.replaceAll(RegExp(r'[^0-9+]'), '');
+    final uri = Uri.parse('https://wa.me/$digits');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
+      AppToast.error(context, 'Could not open WhatsApp.');
+    }
+  }
+
+  // Empty state when the seller hasn't added any property yet.
+  Widget _buildNoPropertiesCard() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20.r),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.apartment_rounded, size: 32.sp, color: AppColors.primary),
+          SizedBox(height: 10.h),
+          Text(
+            'No properties yet',
+            style: GoogleFonts.poppins(fontSize: 14.sp, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'Add your first property to get matched with a DigiNiwas Partner.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+          ),
+          SizedBox(height: 12.h),
+          ElevatedButton(
+            onPressed: () => setState(() => _currentIndex = 1),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+            ),
+            child: Text(
+              'Add Property',
+              style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Property Progress Card Tracker
-  Widget _buildPropertyProgressCard() {
+  Widget _buildPropertyProgressCard(SellerPropertyBrief property) {
+    final stage = property.stage;
     return Container(
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
@@ -445,17 +683,12 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
+          ImageCase(
+            url: property.imageUrl,
             width: 75.w,
             height: 75.h,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12.r),
-              color: Colors.grey.shade300,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12.r),
-              child: Icon(Icons.apartment, size: 36.sp, color: Colors.grey.shade600),
-            ),
+            fallbackIcon: Icons.apartment,
+            borderRadius: BorderRadius.circular(12.r),
           ),
           SizedBox(width: 14.w),
           Expanded(
@@ -463,7 +696,9 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Green Valley Residency',
+                  property.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.poppins(
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w800,
@@ -473,18 +708,21 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                 SizedBox(height: 8.h),
                 Row(
                   children: [
-                    _buildStepIndicator('Submitted', true, true),
-                    _buildStepLine(true),
-                    _buildStepIndicator('Partner Review', true, false, isCurrent: true),
-                    _buildStepLine(false),
-                    _buildStepIndicator('Verified', false, false),
-                    _buildStepLine(false),
-                    _buildStepIndicator('Live', false, false),
+                    _buildStepIndicator('Submitted', true, stage.index > 0),
+                    _buildStepLine(stage.index >= 1),
+                    _buildStepIndicator('Partner Review', stage.index > 1, stage.index > 1,
+                        isCurrent: stage == SellerPropertyStage.partnerReview),
+                    _buildStepLine(stage.index >= 2),
+                    _buildStepIndicator('Verified', stage.index > 2, stage.index > 2,
+                        isCurrent: stage == SellerPropertyStage.verified),
+                    _buildStepLine(stage.index >= 3),
+                    _buildStepIndicator('Live', stage == SellerPropertyStage.live, false,
+                        isCurrent: stage == SellerPropertyStage.live),
                   ],
                 ),
                 SizedBox(height: 10.h),
                 Text(
-                  'Arjun is reviewing your property details.',
+                  property.statusNote,
                   style: GoogleFonts.poppins(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w500,
@@ -495,7 +733,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () => setState(() => _currentIndex = 1),
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
@@ -568,7 +806,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
         children: [
           Container(
             padding: EdgeInsets.all(12.r),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.primary,
               shape: BoxShape.circle,
             ),
@@ -589,7 +827,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                 ),
                 SizedBox(height: 4.h),
                 Text(
-                  'Add the ownership document requested by your partner to complete verification.',
+                  _controller.aiSuggestionBody.value,
                   style: GoogleFonts.poppins(
                     fontSize: 11.sp,
                     height: 1.3,
@@ -601,7 +839,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
           ),
           SizedBox(width: 8.w),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: () => setState(() => _currentIndex = 1),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
@@ -619,6 +857,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
 
   // Recent Partner Updates Section
   Widget _buildRecentUpdatesSection() {
+    final updates = _controller.recentUpdates;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -633,21 +872,23 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
                 color: AppColors.textPrimary,
               ),
             ),
-            TextButton(
-              onPressed: () {},
-              child: Text(
-                'View All →',
-                style: GoogleFonts.poppins(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+            if (updates.isNotEmpty)
+              TextButton(
+                onPressed: () => setState(() => _currentIndex = 3),
+                child: Text(
+                  'View All →',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
         SizedBox(height: 8.h),
         Container(
+          width: double.infinity,
           padding: EdgeInsets.all(16.r),
           decoration: BoxDecoration(
             color: AppColors.surface,
@@ -660,31 +901,43 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
               ),
             ],
           ),
-          child: Column(
-            children: [
-              _buildUpdateItem(
-                icon: Icons.calendar_today_outlined,
-                title: 'Site visit requested by Arjun',
-                time: 'Today',
-                showDivider: true,
-              ),
-              _buildUpdateItem(
-                icon: Icons.description_outlined,
-                title: 'Price discussion note added',
-                time: '2 hours ago',
-                showDivider: true,
-              ),
-              _buildUpdateItem(
-                icon: Icons.local_offer_outlined,
-                title: '1 offer ready for your review',
-                time: 'Yesterday',
-                showDivider: false,
-              ),
-            ],
-          ),
+          child: updates.isEmpty
+              ? Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Text(
+                    'No updates yet. Your Partner will keep you posted here.',
+                    style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (int i = 0; i < updates.length; i++)
+                      _buildUpdateItem(
+                        icon: _iconForUpdateKind(updates[i].kind),
+                        title: updates[i].title,
+                        time: timeAgoLabel(updates[i].timestamp),
+                        showDivider: i != updates.length - 1,
+                      ),
+                  ],
+                ),
         ),
       ],
     );
+  }
+
+  IconData _iconForUpdateKind(SellerUpdateKind kind) {
+    switch (kind) {
+      case SellerUpdateKind.visit:
+        return Icons.calendar_today_outlined;
+      case SellerUpdateKind.lead:
+        return Icons.people_outline_rounded;
+      case SellerUpdateKind.offer:
+        return Icons.local_offer_outlined;
+      case SellerUpdateKind.property:
+        return Icons.description_outlined;
+      case SellerUpdateKind.generic:
+        return Icons.notifications_none_rounded;
+    }
   }
 
   Widget _buildUpdateItem({required IconData icon, required String title, required String time, required bool showDivider}) {

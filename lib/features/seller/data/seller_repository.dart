@@ -266,10 +266,13 @@ class SellerRepository {
   // 3. SELLER PROFILE, SUMMARY & PROPERTIES
   // ===========================================================================
 
-  /// Get Seller Profile by ID: GET /api/sellers/:id
+  /// Get Seller Profile by ID: GET /api/v1/sellers/:id
   Future<SellerModel> getSellerById(String id) async {
     try {
-      final response = await _apiService.get('${ApiConstants.getSellerById}/$id');
+      // NOTE: ApiConstants.getSellerById / getSellerSummary / getSellerProperties
+      // are methods that build the full path (they already include the id),
+      // not string constants — call them as functions, don't interpolate them.
+      final response = await _apiService.get(ApiConstants.getSellerById(id));
       final data = _asMap(response.data);
       _throwIfUnsuccessful(data, fallback: 'Could not fetch seller details.');
       
@@ -283,10 +286,10 @@ class SellerRepository {
     }
   }
 
-  /// Get Seller Summary Stats: GET /api/sellers/:id/summary
+  /// Get Seller Summary Stats: GET /api/v1/sellers/:id/summary
   Future<SellerSummaryModel> getSellerSummary(String id) async {
     try {
-      final response = await _apiService.get('${ApiConstants.getSellerSummary}/$id/summary');
+      final response = await _apiService.get(ApiConstants.getSellerSummary(id));
       final data = _asMap(response.data);
       _throwIfUnsuccessful(data, fallback: 'Could not fetch seller summary.');
       
@@ -298,15 +301,20 @@ class SellerRepository {
     }
   }
 
-  /// Get Seller Properties: GET /api/sellers/:id/properties
+  /// Get Seller Properties: GET /api/v1/sellers/:id/properties
   Future<List<dynamic>> getSellerProperties(String id) async {
     try {
-      final response = await _apiService.get('${ApiConstants.getSellerProperties}/$id/properties');
+      final response = await _apiService.get(ApiConstants.getSellerProperties(id));
       final data = _asMap(response.data);
       _throwIfUnsuccessful(data, fallback: 'Could not fetch seller properties.');
-      
-      if (data['data'] is List) {
-        return data['data'] as List<dynamic>;
+
+      final raw = data['data'];
+      if (raw is List) return raw;
+      // Some list endpoints in this backend nest the array one level
+      // deeper, e.g. { data: { properties: [...] } }.
+      if (raw is Map) {
+        final nested = raw['properties'] ?? raw['results'] ?? raw['items'];
+        if (nested is List) return nested;
       }
       return [];
     } on DioException catch (e, st) {
@@ -315,14 +323,14 @@ class SellerRepository {
     }
   }
 
-  /// Get Seller Single Property Details: GET /api/sellers/:sellerId/properties/:propertyId
+  /// Get Seller Single Property Details: GET /api/v1/sellers/:sellerId/properties/:propertyId
   Future<Map<String, dynamic>> getSellerPropertyById({
     required String sellerId,
     required String propertyId,
   }) async {
     try {
       final response = await _apiService.get(
-        '${ApiConstants.getSellerPropertyById}/$sellerId/properties/$propertyId',
+        ApiConstants.getSellerPropertyById(sellerId, propertyId),
       );
       final data = _asMap(response.data);
       _throwIfUnsuccessful(data, fallback: 'Could not fetch property details.');
@@ -337,12 +345,64 @@ class SellerRepository {
   }
 
   // ===========================================================================
+  // 4. SELLER HOME — SUPPORTING DATA (leads & visits for the assigned partner)
+  // ===========================================================================
+
+  /// Leads captured against the partner handling this seller's properties:
+  /// GET /api/v1/leads/partner/:partnerId
+  /// Returns a raw, defensively-parsed list (never throws — Seller Home
+  /// treats this as supplementary and should still render without it).
+  Future<List<Map<String, dynamic>>> getPartnerLeadsRaw(String partnerId) async {
+    try {
+      final response = await _apiService.get(ApiConstants.sellerPartnerLeads(partnerId));
+      return _extractList(response.data, keys: ['leads', 'results', 'items']);
+    } on DioException catch (e, st) {
+      AppLogger.e('Get Partner Leads failed', e, st);
+      return [];
+    }
+  }
+
+  /// Visits scheduled with the partner handling this seller's properties:
+  /// GET /api/v1/visits/partner/:partnerId
+  Future<List<Map<String, dynamic>>> getPartnerVisitsRaw(String partnerId) async {
+    try {
+      final response = await _apiService.get(ApiConstants.sellerPartnerVisits(partnerId));
+      return _extractList(response.data, keys: ['visits', 'results', 'items']);
+    } on DioException catch (e, st) {
+      AppLogger.e('Get Partner Visits failed', e, st);
+      return [];
+    }
+  }
+
+  // ===========================================================================
   // HELPERS
   // ===========================================================================
 
   Map<String, dynamic> _asMap(dynamic raw) {
     if (raw is Map) return Map<String, dynamic>.from(raw);
     return <String, dynamic>{};
+  }
+
+  /// Pulls a `List` out of a response body that may put it at `data`,
+  /// `data.<key>` for any of [keys], or at the root — whichever shape the
+  /// backend happens to use for a given list endpoint.
+  List<Map<String, dynamic>> _extractList(dynamic raw, {required List<String> keys}) {
+    dynamic root = raw;
+    if (root is Map && root['data'] != null) root = root['data'];
+
+    dynamic list = root;
+    if (root is Map) {
+      list = null;
+      for (final key in keys) {
+        if (root[key] is List) {
+          list = root[key];
+          break;
+        }
+      }
+    }
+
+    if (list is! List) return [];
+    return list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   void _throwIfUnsuccessful(Map<String, dynamic> data, {required String fallback}) {
