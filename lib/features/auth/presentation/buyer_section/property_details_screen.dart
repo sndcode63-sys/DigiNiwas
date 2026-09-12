@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/controller/buyer_home_controller.dart';
+import '../../../../core/controller/lead_controller.dart';
 import '../../../../core/controller/property_detils_controller.dart';
 import '../../../../core/controller/visit_controller.dart';
 import '../../../../core/models/requestVisitModels.dart';
@@ -17,6 +18,7 @@ import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/storage/storage_service.dart';
 
 import '../../data/agent_repo.dart';
+import '../../data/lead_repository.dart';
 import '../../data/visit_repositort.dart';
 
 
@@ -475,7 +477,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
                     SizedBox(height: 18.h),
 
                     // ================= CONNECT WITH PARTNER =================
-                    _buildPartnerCard(),
+                    _buildPartnerCard(context),
                     SizedBox(height: 26.h),
                   ],
                 ),
@@ -869,7 +871,18 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
     );
   }
 
-  Widget _buildPartnerCard() {
+  // 🤝 Connect With Partner Bottom Sheet — collects/creates a lead via
+  // POST /leads/from-property (see LeadRepository.createLeadFromProperty).
+  void _showConnectPartnerSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ConnectPartnerSheet(controller: controller),
+    );
+  }
+
+  Widget _buildPartnerCard(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(16.w),
@@ -923,7 +936,7 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () => _showConnectPartnerSheet(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF007A5E),
                 padding: EdgeInsets.symmetric(vertical: 13.h),
@@ -1135,6 +1148,552 @@ class _PropertyDetailsScreenState extends State<PropertyDetailsScreen> {
 }
 
 // 📅 Schedule Visit Bottom Sheet — now wired to real POST /visits/request
+// ============================================================
+// 🤝 Connect With Partner Bottom Sheet
+// Matches the "Connect with DigiNiwas Partner" popup: shows the resolved
+// partner for this property and three contact actions. WhatsApp/Call fire
+// a best-effort lead (POST /leads/from-property) in the background before
+// opening WhatsApp/the dialer. "Request Instant Callback" is the actual
+// lead form — it collects name + phone and submits the lead directly.
+// ============================================================
+class _ConnectPartnerSheet extends StatefulWidget {
+  final PropertyDetailsController controller;
+
+  const _ConnectPartnerSheet({required this.controller});
+
+  @override
+  State<_ConnectPartnerSheet> createState() => _ConnectPartnerSheetState();
+}
+
+class _ConnectPartnerSheetState extends State<_ConnectPartnerSheet> {
+  String _partnerName = 'DigiNiwas Partner';
+  String _partnerSub = 'Verified Partner';
+  String _partnerPhone = '9876543210';
+  String _partnerId = '';
+  bool _resolvingPartner = true;
+
+  bool _showCallbackForm = false;
+  bool _callbackSent = false;
+
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+
+  AgentRepository get _agentRepository {
+    if (Get.isRegistered<AgentRepository>()) return Get.find<AgentRepository>();
+    return Get.put(AgentRepository(ApiService.instance), permanent: true);
+  }
+
+  LeadController get _leadController {
+    if (Get.isRegistered<LeadController>()) return Get.find<LeadController>();
+    final repo = Get.isRegistered<LeadRepository>()
+        ? Get.find<LeadRepository>()
+        : Get.put(LeadRepository(ApiService.instance), permanent: true);
+    return Get.put(LeadController(repo), permanent: true);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillBuyerInfo();
+    _resolvePartner();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _prefillBuyerInfo() async {
+    final name = await StorageService.instance.name;
+    final phone = await StorageService.instance.phone;
+    if (!mounted) return;
+    setState(() {
+      if (name != null && name.isNotEmpty) _nameController.text = name;
+      if (phone != null && phone.isNotEmpty) _phoneController.text = phone;
+    });
+  }
+
+  String _extractPropertyId(Map<String, dynamic> propertyMap) {
+    return propertyMap['_id']?.toString() ??
+        propertyMap['propertyId']?.toString() ??
+        propertyMap['propertyCode']?.toString() ??
+        propertyMap['id']?.toString() ??
+        '';
+  }
+
+  /// Same resolution order as the Schedule Visit flow: a partnerId/object
+  /// carried directly on the property, else the best-ranked nearby agent.
+  Future<void> _resolvePartner() async {
+    final property = widget.controller.property;
+    final direct = property['partnerId']?.toString() ?? property['assignedPartnerId']?.toString();
+
+    Map<String, dynamic>? partnerMap;
+    for (final key in ['partner', 'assignedPartner']) {
+      if (property[key] is Map) {
+        partnerMap = Map<String, dynamic>.from(property[key]);
+        break;
+      }
+    }
+
+    if (partnerMap == null || (direct == null || direct.isEmpty)) {
+      try {
+        final lat = (property['latitude'] as num?)?.toDouble();
+        final lng = (property['longitude'] as num?)?.toDouble();
+        final city = property['city']?.toString();
+        final agents = await _agentRepository.getNearbyAgents(lat: lat, lng: lng, city: city);
+        if (agents.isNotEmpty) partnerMap ??= agents.first;
+      } catch (_) {
+        // Keep the generic placeholder if resolution fails — contact
+        // actions still work using the shared support numbers.
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _partnerId = (direct != null && direct.isNotEmpty)
+          ? direct
+          : partnerMap?['_id']?.toString() ?? partnerMap?['id']?.toString() ?? '';
+      if (partnerMap != null) {
+        _partnerName = partnerMap['name']?.toString() ?? _partnerName;
+        final locality = partnerMap['locality']?.toString() ?? partnerMap['serviceLocality']?.toString();
+        _partnerSub = (locality != null && locality.isNotEmpty)
+            ? 'Locality Specialist • $locality'
+            : (partnerMap['partnerType']?.toString() ?? _partnerSub);
+        final phone = partnerMap['phone']?.toString();
+        if (phone != null && phone.isNotEmpty) _partnerPhone = phone;
+      }
+      _resolvingPartner = false;
+    });
+  }
+
+  Future<String?> _getBuyerId() async {
+    String? buyerId = await StorageService.instance.buyerId;
+    if (buyerId == null || buyerId.isEmpty) buyerId = await StorageService.instance.userId;
+    if (buyerId == null || buyerId.isEmpty) {
+      final userJson = await SecureStorageService.instance.getUserData();
+      if (userJson != null && userJson.isNotEmpty) {
+        try {
+          final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+          buyerId = userMap['id']?.toString() ?? userMap['_id']?.toString() ?? userMap['buyerId']?.toString();
+        } catch (_) {}
+      }
+    }
+    return buyerId;
+  }
+
+  /// WhatsApp / Call: create the lead in the background (best-effort — a
+  /// missing name/phone must never block the actual contact action), then
+  /// perform the action itself.
+  Future<void> _handleQuickContact(String contactPreference) async {
+    final propertyId = _extractPropertyId(widget.controller.property);
+    final buyerId = await _getBuyerId();
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (propertyId.isNotEmpty && (name.isNotEmpty || phone.isNotEmpty || (buyerId != null && buyerId.isNotEmpty))) {
+      unawaited(_leadController.createLeadFromProperty(
+        propertyId: propertyId,
+        buyerId: buyerId,
+        partnerId: _partnerId,
+        name: name.isNotEmpty ? name : 'Guest',
+        phone: phone,
+        contactPreference: contactPreference,
+      ));
+    }
+
+    if (contactPreference == 'whatsapp') {
+      await widget.controller.launchWhatsApp(_partnerPhone);
+    } else {
+      await widget.controller.makePhoneCall(_partnerPhone);
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  /// Request Instant Callback — the actual lead form: requires a name and
+  /// phone (the partner needs these to call the buyer back) and POSTs
+  /// straight to /leads/from-property.
+  Future<void> _submitCallbackRequest() async {
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (name.isEmpty || phone.isEmpty) {
+      Get.snackbar(
+        'Details Required',
+        'Please enter your name and phone number.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFE53935),
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final propertyId = _extractPropertyId(widget.controller.property);
+    if (propertyId.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Could not identify this property. Please go back and try again.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFE53935),
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final buyerId = await _getBuyerId();
+    final success = await _leadController.createLeadFromProperty(
+      propertyId: propertyId,
+      buyerId: buyerId,
+      partnerId: _partnerId,
+      name: name,
+      phone: phone,
+      contactPreference: 'callback',
+    );
+
+    if (!success) {
+      Get.snackbar(
+        'Error',
+        _leadController.submitError.value ?? 'Could not send your request. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFFE53935),
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _callbackSent = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 24.h),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40.w,
+                  height: 4.h,
+                  margin: EdgeInsets.only(bottom: 16.h),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(4.r),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Connect with DigiNiwas Partner',
+                      style: GoogleFonts.poppins(fontSize: 16.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(Icons.close_rounded, color: const Color(0xFF64748B), size: 20.sp),
+                  ),
+                ],
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                'Get verified pricing, floor plans, and arrange direct site visits.',
+                style: GoogleFonts.poppins(fontSize: 11.5.sp, color: const Color(0xFF64748B), height: 1.35),
+              ),
+              SizedBox(height: 16.h),
+              _buildPropertyRow(),
+              SizedBox(height: 14.h),
+              if (_callbackSent)
+                _buildCallbackSuccess()
+              else if (_showCallbackForm)
+                _buildCallbackForm()
+              else
+                _buildPartnerAndActions(),
+              SizedBox(height: 14.h),
+              Center(
+                child: Text(
+                  '🛡️ Zero Spam Guarantee • Direct connection with verified DigiNiwas partner.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 10.sp, color: const Color(0xFF94A3B8)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPropertyRow() {
+    return Container(
+      padding: EdgeInsets.all(10.w),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8.r),
+            child: widget.controller.imageUrl.isNotEmpty
+                ? Image.network(widget.controller.imageUrl, width: 44.w, height: 44.w, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(width: 44.w, height: 44.w, color: const Color(0xFFE2E8F0)))
+                : Container(width: 44.w, height: 44.w, color: const Color(0xFFE2E8F0), child: const Icon(Icons.apartment_rounded, color: Colors.white)),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.controller.title.isNotEmpty ? widget.controller.title : 'This Property',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                ),
+                if (widget.controller.address.isNotEmpty)
+                  Text(
+                    widget.controller.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B)),
+                  ),
+              ],
+            ),
+          ),
+          if (widget.controller.priceDisplay.isNotEmpty)
+            Text(
+              widget.controller.priceDisplay,
+              style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF007A5E)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPartnerAndActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: EdgeInsets.all(12.w),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDF9),
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: const Color(0xFFCFF3E7)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20.r,
+                backgroundColor: const Color(0xFF007A5E),
+                child: Text(
+                  _resolvingPartner ? '..' : (_partnerName.isNotEmpty ? _partnerName[0].toUpperCase() : 'P'),
+                  style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14.sp),
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _resolvingPartner ? 'Finding your partner…' : _partnerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                          ),
+                        ),
+                        SizedBox(width: 6.w),
+                        if (!_resolvingPartner)
+                          Icon(Icons.verified_rounded, color: const Color(0xFF007A5E), size: 14.sp),
+                      ],
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      _resolvingPartner ? ' ' : _partnerSub,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 14.h),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _handleQuickContact('whatsapp'),
+            icon: const Icon(Icons.chat_rounded, color: Colors.white, size: 16),
+            label: Text('Chat on WhatsApp', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 12.5.sp)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF25D366),
+              padding: EdgeInsets.symmetric(vertical: 13.h),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              elevation: 0,
+            ),
+          ),
+        ),
+        SizedBox(height: 10.h),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _handleQuickContact('call'),
+            icon: const Icon(Icons.call_rounded, color: Colors.white, size: 16),
+            label: Text('Call Partner Directly', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 12.5.sp)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F2544),
+              padding: EdgeInsets.symmetric(vertical: 13.h),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              elevation: 0,
+            ),
+          ),
+        ),
+        SizedBox(height: 10.h),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _showCallbackForm = true),
+            icon: Icon(Icons.notifications_active_rounded, color: const Color(0xFF007A5E), size: 16.sp),
+            label: Text('Request Instant Callback', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: const Color(0xFF007A5E), fontSize: 12.5.sp)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFFCBD5E1)),
+              padding: EdgeInsets.symmetric(vertical: 13.h),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCallbackForm() {
+    return Obx(() {
+      final isSubmitting = _leadController.isSubmitting.value;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Request Instant Callback', style: GoogleFonts.poppins(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+          SizedBox(height: 2.h),
+          Text(
+            'Share your details and a verified partner will call you back shortly.',
+            style: GoogleFonts.poppins(fontSize: 11.sp, color: const Color(0xFF64748B), height: 1.35),
+          ),
+          SizedBox(height: 14.h),
+          TextField(
+            controller: _nameController,
+            style: GoogleFonts.poppins(fontSize: 12.5.sp),
+            decoration: InputDecoration(
+              labelText: 'Your Name',
+              labelStyle: GoogleFonts.poppins(fontSize: 11.5.sp, color: const Color(0xFF64748B)),
+              prefixIcon: Icon(Icons.person_outline_rounded, color: const Color(0xFF64748B), size: 18.sp),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
+              contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
+            ),
+          ),
+          SizedBox(height: 10.h),
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: GoogleFonts.poppins(fontSize: 12.5.sp),
+            decoration: InputDecoration(
+              labelText: 'Phone Number',
+              labelStyle: GoogleFonts.poppins(fontSize: 11.5.sp, color: const Color(0xFF64748B)),
+              prefixIcon: Icon(Icons.phone_outlined, color: const Color(0xFF64748B), size: 18.sp),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
+              contentPadding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: isSubmitting ? null : () => setState(() => _showCallbackForm = false),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    padding: EdgeInsets.symmetric(vertical: 13.h),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  child: Text('Back', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: const Color(0xFF334155), fontSize: 12.5.sp)),
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: isSubmitting ? null : _submitCallbackRequest,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007A5E),
+                    padding: EdgeInsets.symmetric(vertical: 13.h),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                    elevation: 0,
+                  ),
+                  child: isSubmitting
+                      ? SizedBox(width: 16.w, height: 16.w, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text('Request Callback', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 12.5.sp)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildCallbackSuccess() {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(14.w),
+          decoration: BoxDecoration(color: const Color(0xFFEFF8F5), shape: BoxShape.circle),
+          child: Icon(Icons.check_circle_rounded, color: const Color(0xFF007A5E), size: 32.sp),
+        ),
+        SizedBox(height: 12.h),
+        Text('Callback Requested!', style: GoogleFonts.poppins(fontSize: 14.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+        SizedBox(height: 4.h),
+        Text(
+          'A verified DigiNiwas partner will call you back shortly on ${_phoneController.text.trim()}.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(fontSize: 11.5.sp, color: const Color(0xFF64748B), height: 1.4),
+        ),
+        SizedBox(height: 16.h),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF007A5E),
+              padding: EdgeInsets.symmetric(vertical: 13.h),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              elevation: 0,
+            ),
+            child: Text('Done', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 12.5.sp)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ScheduleVisitBottomSheet extends StatefulWidget {
   final PropertyDetailsController controller;
 

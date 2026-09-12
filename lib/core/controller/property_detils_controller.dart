@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/network/api_service.dart';
 import '../../../../core/routes/app_routes.dart';
+import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../features/auth/data/home_repository.dart';
 
@@ -38,6 +39,7 @@ class PropertyDetailsController extends GetxController {
         property.value = Map<String, dynamic>.from(args['property'] as Map);
         AppLogger.i('Loaded property data directly from arguments: ${property.value}');
         isLoading.value = false;
+        _recordRecentlyViewed();
       } else if (args.containsKey('propertyId') || args.containsKey('id')) {
         final id = (args['propertyId'] ?? args['id']).toString();
         AppLogger.i('Property ID found in arguments: $id. Fetching from API...');
@@ -51,6 +53,21 @@ class PropertyDetailsController extends GetxController {
       AppLogger.w('Invalid or null navigation arguments received: $args');
       error.value = 'Invalid navigation arguments.';
       isLoading.value = false;
+    }
+  }
+
+  /// Locally tracks this property as "recently viewed" (no backend
+  /// endpoint exists for this yet — see StorageService.addRecentlyViewedId)
+  /// so the Profile screen's "Recently Viewed" stat reflects real
+  /// in-app activity instead of a hardcoded number.
+  void _recordRecentlyViewed() {
+    final id = property['_id']?.toString() ??
+        property['propertyId']?.toString() ??
+        property['propertyCode']?.toString() ??
+        property['id']?.toString() ??
+        '';
+    if (id.isNotEmpty) {
+      StorageService.instance.addRecentlyViewedId(id);
     }
   }
 
@@ -87,6 +104,7 @@ class PropertyDetailsController extends GetxController {
       if (data != null) {
         property.value = data;
         AppLogger.i('Successfully fetched property details from API: ${property.value}');
+        _recordRecentlyViewed();
       } else {
         AppLogger.w('API returned null for property ID: $propertyId');
         error.value = 'Property details not found from server.';
