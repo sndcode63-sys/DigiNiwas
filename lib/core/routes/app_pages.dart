@@ -12,6 +12,8 @@ import '../../features/auth/presentation/registration_screen.dart';
 import '../../features/auth/presentation/seller/add_property_flow_screen.dart';
 import '../../features/auth/presentation/seller/home_seller.dart';
 import '../../features/auth/presentation/seller/my_property_seller.dart';
+import '../../features/auth/presentation/seller/seller_change_password_screen.dart';
+import '../../features/auth/presentation/seller/seller_registration_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import 'app_routes.dart';
                              // replace stack
@@ -84,6 +86,14 @@ class AppPages {
     ),
 
     // Seller flow
+    GetPage(
+      name: AppRoutes.sellerRegistration,
+      page: () => const SellerRegistrationScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.sellerChangePassword,
+      page: () => const SellerChangePasswordScreen(),
+    ),
     GetPage(
       name: AppRoutes.myProperties,
       page: () => const MyPropertiesScreen(),

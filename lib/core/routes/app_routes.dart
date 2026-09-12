@@ -22,6 +22,8 @@ abstract class AppRoutes {
   static const mapView = '/map-view';
 
   // Seller flow
+  static const sellerRegistration = '/seller-registration';
+  static const sellerChangePassword = '/seller-change-password';
   static const myProperties = '/my-properties';
   static const addProperty = '/add-property';
 

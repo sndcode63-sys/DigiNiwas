@@ -32,6 +32,14 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
     final selected = _selectedRole;
     if (selected == null) return;
 
+    // Seller KYC Application & Registration flow (as per documentation) —
+    // sellers go through their own multi-step register/verify-email/
+    // verify-phone flow instead of the generic OTP registration screen.
+    if (selected == 'seller') {
+      Get.toNamed(AppRoutes.sellerRegistration);
+      return;
+    }
+
     Get.toNamed(AppRoutes.registration, arguments: {'role': _apiRole[selected]!});
   }
 

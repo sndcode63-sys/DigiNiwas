@@ -86,4 +86,8 @@ class ApiService {
   Future<Response> delete(String path, {dynamic data}) {
     return _withColdStartRetry(() => _dio.delete(path, data: data));
   }
+
+  Future<Response> patch(String path, {dynamic data}) {
+    return _withColdStartRetry(() => _dio.patch(path, data: data));
+  }
 }

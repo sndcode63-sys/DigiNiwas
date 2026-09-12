@@ -1,194 +1,593 @@
 class ApiConstants {
   ApiConstants._();
 
+  // ============================================================
+  // BASE URL
+  // ============================================================
+
   static const String baseUrl =
       'https://backend-diginiwas.onrender.com/api';
 
-  // ==================== Auth Endpoints ====================
-  // Backend source: routes/authRoutes.js -> controllers/authController.js
-  static const String register = '/auths/register';
-  static const String loginPassword = '/auths/login-password';
-  static const String sendOtp = '/auths/send-otp';
-  static const String loginOtp = '/auths/login-otp';
 
-  // ==================== Buyer App Endpoints (V1) ====================
-  // Backend source: DigiNiwas Frontend API Integration doc (buyer app).
-  // Every endpoint below requires: Authorization: Bearer <BUYER_JWT_TOKEN>
+  // ============================================================
+  // AUTH ENDPOINTS
+  // ============================================================
 
-  // 2. Home Feed
+  // POST /api/auths/register
+  static const String register =
+      '/auths/register';
+
+  // POST /api/auths/login-password
+  static const String loginPassword =
+      '/auths/login-password';
+
+  // POST /api/auths/send-otp
+  static const String sendOtp =
+      '/auths/send-otp';
+
+  // POST /api/auths/login-otp
+  static const String loginOtp =
+      '/auths/login-otp';
+
+
+  // ============================================================
+  // BUYER APP ENDPOINTS - V1
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Home Feed
   // GET /api/v1/home/feed
-  // Loads home page content using saved buyer location when current
-  // lat/lng aren't passed. Optional query params: lat, lng, city.
-  static const String homeFeed = '/v1/home/feed';
+  // ------------------------------------------------------------
 
-  // 3. Dashboard Header
+  static const String homeFeed =
+      '/v1/home/feed';
+
+
+  // ------------------------------------------------------------
+  // Dashboard Header
   // GET /api/v1/user/dashboard-header
+  // ------------------------------------------------------------
 
-  static const String dashboardHeader = '/v1/user/dashboard-header';
+  static const String dashboardHeader =
+      '/v1/user/dashboard-header';
 
-  // 4. Property Categories
+
+  // ------------------------------------------------------------
+  // Property Categories
   // GET /api/v1/properties/categories
+  // ------------------------------------------------------------
 
-  static const String propertyCategories = '/v1/properties/categories';
+  static const String propertyCategories =
+      '/v1/properties/categories';
 
-  // 5. Boosted Properties
+
+  // ------------------------------------------------------------
+  // Boosted Properties
   // GET /api/v1/properties/boosted
-  // Returns active promoted properties.
-  static const String boostedProperties = '/v1/properties/boosted';
+  // ------------------------------------------------------------
 
-  // 6. Explore Nearby - Map Ready
+  static const String boostedProperties =
+      '/v1/properties/boosted';
+
+
+  // ------------------------------------------------------------
+  // Explore Nearby
   // GET /api/v1/properties/explore-nearby
+  // Query: propertyId, radius
+  // ------------------------------------------------------------
 
-  static const String exploreNearby = '/v1/properties/explore-nearby';
+  static const String exploreNearby =
+      '/v1/properties/explore-nearby';
 
-  // 7. New Listings
+
+  // ------------------------------------------------------------
+  // New Listings
   // GET /api/v1/properties/new-listings
-  // Returns latest Live + Verified property cards with `listedAgo`.
-  static const String newListings = '/v1/properties/new-listings';
+  // ------------------------------------------------------------
 
-  // 8. Popular Locations
-  // `_id` and custom `propertyId`.
-  static const String popularLocations = '/v1/locations/popular';
+  static const String newListings =
+      '/v1/properties/new-listings';
 
-  // 9. Nearby Agents
-  // Returns verified agents ranked by location/service-locality/
-  static const String nearbyAgents = '/v1/agents/nearby';
 
-  // ==================== Property Endpoints ====================
+  // ------------------------------------------------------------
+  // Popular Locations
+  // GET /api/v1/locations/popular
+  // ------------------------------------------------------------
 
-  // Fetch all properties
-  // GET /properties
-  static const String getProperties = '/properties';
+  static const String popularLocations =
+      '/v1/locations/popular';
 
-  // Search properties
-  // GET /properties/search/list?keyword=value
-  static const String searchProperties = '/properties/search/list';
 
-  // Filter properties
-  // GET /properties/filter
-  static const String filterProperties = '/properties/filter';
+  // ------------------------------------------------------------
+  // Nearby Agents
+  // GET /api/v1/agents/nearby
+  // ------------------------------------------------------------
 
+  static const String nearbyAgents =
+      '/v1/agents/nearby';
+
+
+  // ============================================================
+  // PROPERTY ENDPOINTS
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Get All Properties
+  // GET /api/properties
+  // ------------------------------------------------------------
+
+  static const String getProperties =
+      '/properties';
+
+
+  // ------------------------------------------------------------
+  // Search Properties
+  // GET /api/properties/search/list
+  // ------------------------------------------------------------
+
+  static const String searchProperties =
+      '/properties/search/list';
+
+
+  // ------------------------------------------------------------
+  // Filter Properties
+  // GET /api/properties/filter
+  // ------------------------------------------------------------
+
+  static const String filterProperties =
+      '/properties/filter';
+
+
+  // ------------------------------------------------------------
   // New Properties Filter
-  // GET /api/newproperties/filter (baseUrl already includes /api)
-  static const String newPropertiesFilter = '/newproperties/filter';
+  // GET /api/newproperties/filter
+  // ------------------------------------------------------------
 
-  // GET /properties/:id
-  static const String getPropertyById = '/properties';
+  static const String newPropertiesFilter =
+      '/newproperties/filter';
 
-  // ==================== Saved Property Endpoints ====================
 
-  // Save property
-  // POST /saved-properties
-  static const String saveProperty = '/saved-properties';
+  // ------------------------------------------------------------
+  // Get Property By ID
+  // GET /api/properties/:id
+  // ------------------------------------------------------------
 
-  // GET /saved-properties/buyer/:buyerId
-  static const String getBuyerSavedProperties =
-      '/saved-properties/buyer';
+  static const String getPropertyById =
+      '/properties';
 
-  // GET /saved-properties/check/:buyerId/:propertyId
-  static const String checkSavedProperty =
-      '/saved-properties/check';
 
-  // Remove saved property
-  // DELETE /saved-properties/:buyerId/:propertyId
-  static const String removeSavedProperty =
+  // ------------------------------------------------------------
+  // Create Property
+  // POST /api/v1/properties
+  // ------------------------------------------------------------
+
+  static const String createProperty =
+      '/v1/properties';
+
+
+  // ------------------------------------------------------------
+  // Update Property
+  // PATCH /api/v1/properties/:id
+  // ------------------------------------------------------------
+
+  static String updateProperty(String propertyId) =>
+      '/v1/properties/$propertyId';
+
+
+  // ------------------------------------------------------------
+  // Delete Property
+  // DELETE /api/v1/properties/:id/delete
+  // ------------------------------------------------------------
+
+  static String deleteProperty(String propertyId) =>
+      '/v1/properties/$propertyId/delete';
+
+
+  // ------------------------------------------------------------
+  // Update Property Status
+  // PATCH /api/v1/properties/:id/status
+  // ------------------------------------------------------------
+
+  static String updatePropertyStatus(String propertyId) =>
+      '/v1/properties/$propertyId/status';
+
+
+  // ------------------------------------------------------------
+  // Boost Property
+  // PATCH /api/v1/properties/:id/boost
+  // ------------------------------------------------------------
+
+  static String boostProperty(String propertyId) =>
+      '/v1/properties/$propertyId/boost';
+
+
+  // ------------------------------------------------------------
+  // Remove Property Boost
+  // PATCH /api/v1/properties/:id/unboost
+  // ------------------------------------------------------------
+
+  static String removePropertyBoost(String propertyId) =>
+      '/v1/properties/$propertyId/unboost';
+
+
+  // ------------------------------------------------------------
+  // Get All Properties - V1
+  // GET /api/v1/properties/all
+  // ------------------------------------------------------------
+
+  static const String getAllPropertiesV1 =
+      '/v1/properties/all';
+
+
+  // ------------------------------------------------------------
+  // Get Admin Properties
+  // GET /api/v1/properties/admin
+  // ------------------------------------------------------------
+
+  static const String getAdminProperties =
+      '/v1/properties/admin';
+
+
+  // ------------------------------------------------------------
+  // Get Boosted Properties - V1
+  // GET /api/v1/properties/boosted
+  // ------------------------------------------------------------
+
+  static const String getBoostedPropertiesV1 =
+      '/v1/properties/boosted';
+
+
+  // ------------------------------------------------------------
+  // Get New Listings - V1
+  // GET /api/v1/properties/new-listings
+  // ------------------------------------------------------------
+
+  static const String getNewListingsV1 =
+      '/v1/properties/new-listings';
+
+
+  // ------------------------------------------------------------
+  // Get Properties By Partner
+  // GET /api/v1/properties/partner/:partnerId
+  // ------------------------------------------------------------
+
+  static String getPropertiesByPartner(String partnerId) =>
+      '/v1/properties/partner/$partnerId';
+
+
+  // ============================================================
+  // SAVED PROPERTY ENDPOINTS
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Save Property
+  // POST /api/saved-properties
+  // ------------------------------------------------------------
+
+  static const String saveProperty =
       '/saved-properties';
 
-  // ==================== Lead / Enquiry Endpoints ====================
 
-  // Create enquiry/lead from property
-  // POST /leads/from-property
+  // ------------------------------------------------------------
+  // Get Buyer Saved Properties
+  // GET /api/saved-properties/buyer/:buyerId
+  // ------------------------------------------------------------
+
+  static String getBuyerSavedProperties(String buyerId) =>
+      '/saved-properties/buyer/$buyerId';
+
+
+  // ------------------------------------------------------------
+  // Check Saved Property
+  // GET /api/saved-properties/check/:buyerId/:propertyId
+  // ------------------------------------------------------------
+
+  static String checkSavedProperty(
+      String buyerId,
+      String propertyId,
+      ) =>
+      '/saved-properties/check/$buyerId/$propertyId';
+
+
+  // ------------------------------------------------------------
+  // Remove Saved Property
+  // DELETE /api/saved-properties/:buyerId/:propertyId
+  // ------------------------------------------------------------
+
+  static String removeSavedProperty(
+      String buyerId,
+      String propertyId,
+      ) =>
+      '/saved-properties/$buyerId/$propertyId';
+
+
+  // ============================================================
+  // LEAD / ENQUIRY ENDPOINTS
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Create Lead From Property
+  // POST /api/leads/from-property
+  // ------------------------------------------------------------
+
   static const String createLeadFromProperty =
       '/leads/from-property';
 
-  // ==================== Visit Endpoints ====================
 
-  // Request property visit
-  // POST /visits/request
+  // ------------------------------------------------------------
+  // Get Partner Leads - V1
+  // GET /api/v1/leads/partner/:partnerId
+  // ------------------------------------------------------------
+
+  static String getPartnerLeads(String partnerId) =>
+      '/v1/leads/partner/$partnerId';
+
+
+  // ------------------------------------------------------------
+  // Get Lead By ID - V1
+  // GET /api/v1/leads/:id
+  // ------------------------------------------------------------
+
+  static String getLeadById(String leadId) =>
+      '/v1/leads/$leadId';
+
+
+  // ============================================================
+  // VISIT ENDPOINTS
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Request Property Visit
+  // POST /api/visits/request
+  // ------------------------------------------------------------
+
   static const String requestVisit =
       '/visits/request';
 
-  // Fetch visit by ID
-  // GET /visits/:id
-  static const String getVisitById =
-      '/visits';
 
-  // ==================== Seller Endpoints ====================
-  // POST /sellers/applications/register
+  // ------------------------------------------------------------
+  // Get Visit By ID
+  // GET /api/visits/:id
+  // ------------------------------------------------------------
+
+  static String getVisitById(String visitId) =>
+      '/visits/$visitId';
+
+
+  // ------------------------------------------------------------
+  // Get Visits By Partner - V1
+  // GET /api/v1/visits/partner/:partnerId
+  // ------------------------------------------------------------
+
+  static String getVisitsByPartner(String partnerId) =>
+      '/v1/visits/partner/$partnerId';
+
+
+  // ------------------------------------------------------------
+  // Visit Summary
+  // GET /api/v1/visits/summary
+  // ------------------------------------------------------------
+
+  static const String visitSummary =
+      '/v1/visits/summary';
+
+
+  // ============================================================
+  // SELLER ENDPOINTS - V1
+  // ============================================================
+
+  // ============================================================
+  // SELLER APPLICATION / REGISTRATION
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Register Seller Application
+  // POST /api/v1/sellers/applications/register
+  // ------------------------------------------------------------
+
   static const String registerSellerApplication =
-      '/sellers/applications/register';
+      '/v1/sellers/applications/register';
 
-  // POST /sellers/applications/verify-email
-  static const String verifySellerEmailOtp =
-      '/sellers/applications/verify-email';
 
-  // POST /sellers/applications/verify-phone
-  static const String verifySellerPhoneOtp =
-      '/sellers/applications/verify-phone';
+  // ------------------------------------------------------------
+  // Resend Seller Email OTP
+  // POST /api/v1/sellers/applications/resend-email-otp
+  // ------------------------------------------------------------
 
-  // POST /sellers/applications/resend-email-otp
   static const String resendSellerEmailOtp =
-      '/sellers/applications/resend-email-otp';
+      '/v1/sellers/applications/resend-email-otp';
 
-  // POST /sellers/applications/resend-phone-otp
+
+  // ------------------------------------------------------------
+  // Resend Seller Phone OTP
+  // POST /api/v1/sellers/applications/resend-phone-otp
+  // ------------------------------------------------------------
+
   static const String resendSellerPhoneOtp =
-      '/sellers/applications/resend-phone-otp';
+      '/v1/sellers/applications/resend-phone-otp';
 
-  // POST /sellers/auth/login
-  static const String sellerLogin = '/sellers/auth/login';
 
-  // POST /sellers/auth/send-login-otp
+  // ------------------------------------------------------------
+  // Verify Seller Email OTP
+  // POST /api/v1/sellers/applications/verify-email
+  // ------------------------------------------------------------
+
+  static const String verifySellerEmailOtp =
+      '/v1/sellers/applications/verify-email';
+
+
+  // ------------------------------------------------------------
+  // Verify Seller Phone OTP
+  // POST /api/v1/sellers/applications/verify-phone
+  // ------------------------------------------------------------
+
+  static const String verifySellerPhoneOtp =
+      '/v1/sellers/applications/verify-phone';
+
+
+  // ============================================================
+  // SELLER AUTH
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Seller Login
+  // POST /api/v1/sellers/auth/login
+  // ------------------------------------------------------------
+
+  static const String sellerLogin =
+      '/v1/sellers/auth/login';
+
+
+  // ------------------------------------------------------------
+  // Send Seller Login OTP
+  // POST /api/v1/sellers/auth/send-login-otp
+  // ------------------------------------------------------------
+
   static const String sendSellerLoginOtp =
-      '/sellers/auth/send-login-otp';
+      '/v1/sellers/auth/send-login-otp';
 
-  // Seller login with OTP
-  // POST /sellers/auth/login-with-otp
+
+  // ------------------------------------------------------------
+  // Seller Login With OTP
+  // POST /api/v1/sellers/auth/login-with-otp
+  // ------------------------------------------------------------
+
   static const String sellerLoginWithOtp =
-      '/sellers/auth/login-with-otp';
+      '/v1/sellers/auth/login-with-otp';
 
-  // PATCH /sellers/auth/change-password
+
+  // ------------------------------------------------------------
+  // Change Seller Password
+  // PATCH /api/v1/sellers/auth/change-password
+  // ------------------------------------------------------------
+
   static const String changeSellerPassword =
-      '/sellers/auth/change-password';
+      '/v1/sellers/auth/change-password';
 
-  // GET /sellers/applications
-  static const String getSellerApplications =
-      '/sellers/applications';
 
-  // GET /sellers/applications/:id
-  static const String getSellerApplicationById =
-      '/sellers/applications';
+  // ============================================================
+  // SELLER MANAGEMENT
+  // ============================================================
 
-  // PATCH /sellers/applications/:id/review
-  static const String reviewSellerApplication =
-      '/sellers/applications';
+  // ------------------------------------------------------------
+  // Get All Sellers
+  // GET /api/v1/sellers
+  //
+  // Query:
+  // $or, city, isVerified, search, verified
+  // ------------------------------------------------------------
 
-  // GET /sellers
-  static const String getAllSellers = '/sellers';
+  static const String getAllSellers =
+      '/v1/sellers';
 
-  // Fetch seller summary
-  // GET /sellers/:id/summary
-  static const String getSellerSummary = '/sellers';
 
-  // GET /sellers/:id/properties
-  static const String getSellerProperties = '/sellers';
+  // ------------------------------------------------------------
+  // Get Seller By ID
+  // GET /api/v1/sellers/:id
+  // ------------------------------------------------------------
 
-  // Fetch seller property by id
-  // GET /sellers/:sellerId/properties/:propertyId
-  static const String getSellerPropertyById = '/sellers';
+  static String getSellerById(String sellerId) =>
+      '/v1/sellers/$sellerId';
 
-  // Verify / suspend seller account
-  // PATCH /sellers/:id/verify
-  static const String verifySeller = '/sellers';
 
-  // GET /sellers/:id
-  static const String getSellerById = '/sellers';
+  // ------------------------------------------------------------
+  // Get Seller Summary
+  // GET /api/v1/sellers/:id/summary
+  // ------------------------------------------------------------
 
-  // ==================== Timeout ====================
+  static String getSellerSummary(String sellerId) =>
+      '/v1/sellers/$sellerId/summary';
+
+
+  // ------------------------------------------------------------
+  // Get Seller Properties
+  // GET /api/v1/sellers/:id/properties
+  // ------------------------------------------------------------
+
+  static String getSellerProperties(String sellerId) =>
+      '/v1/sellers/$sellerId/properties';
+
+
+  // ------------------------------------------------------------
+  // Get Seller Property By ID
+  // GET /api/v1/sellers/:sellerId/properties/:propertyId
+  // ------------------------------------------------------------
+
+  static String getSellerPropertyById(
+      String sellerId,
+      String propertyId,
+      ) =>
+      '/v1/sellers/$sellerId/properties/$propertyId';
+
+
+  // ============================================================
+  // SELLER HOME - SUPPORTING APIs
+  // ============================================================
+  //
+  // These are not part of the 14 Seller-specific APIs.
+  // They are used by Seller Home for leads, promotions,
+  // visits and partner-related information.
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Seller/Partner Leads
+  // GET /api/v1/leads/partner/:partnerId
+  // ------------------------------------------------------------
+
+  static String sellerPartnerLeads(String partnerId) =>
+      '/v1/leads/partner/$partnerId';
+
+
+  // ------------------------------------------------------------
+  // Seller My Promotions
+  // GET /api/v1/promotions/my
+  // ------------------------------------------------------------
+
+  static const String sellerMyPromotions =
+      '/v1/promotions/my';
+
+
+  // ------------------------------------------------------------
+  // Seller/Partner Visits
+  // GET /api/v1/visits/partner/:partnerId
+  // ------------------------------------------------------------
+
+  static String sellerPartnerVisits(String partnerId) =>
+      '/v1/visits/partner/$partnerId';
+
+
+  // ============================================================
+  // PROPERTY PUBLISHING
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // Final Review Property
+  // GET /api/v1/property-publishing/:id/final-review
+  // Admin Bearer
+  // ------------------------------------------------------------
+
+  static String finalReviewProperty(String propertyId) =>
+      '/v1/property-publishing/$propertyId/final-review';
+
+
+  // ============================================================
+  // TIMEOUT
+  // ============================================================
+
   static const int connectTimeout = 60000;
+
   static const int receiveTimeout = 60000;
+
   static const int sendTimeout = 60000;
 
-  // ==================== Headers ====================
-  static const String authHeader = 'Authorization';
-  static const String contentTypeHeader = 'Content-Type';
+
+  // ============================================================
+  // HEADERS
+  // ============================================================
+
+  static const String authHeader =
+      'Authorization';
+
+  static const String contentTypeHeader =
+      'Content-Type';
 }

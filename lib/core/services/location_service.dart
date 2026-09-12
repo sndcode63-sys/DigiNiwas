@@ -1,3 +1,4 @@
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
 /// Plain-data result of a successful location fetch.
@@ -11,6 +12,7 @@ class LocationResult {
     this.state = '',
     this.country = '',
     this.address = '',
+    this.pinCode = '',
   });
 
   final double latitude;
@@ -25,6 +27,7 @@ class LocationResult {
   final String state;
   final String country;
   final String address;
+  final String pinCode;
 
   /// Matches the backend's actual expected shape for the `location` field:
   /// `{ "location": { "longitude": ..., "latitude": ... } }`
@@ -45,6 +48,7 @@ class LocationResult {
     'state': state,
     'country': country,
     'address': address,
+    'pinCode': pinCode,
   };
 
   factory LocationResult.fromJson(Map<String, dynamic> json) => LocationResult(
@@ -58,6 +62,7 @@ class LocationResult {
     state: json['state'] as String? ?? '',
     country: json['country'] as String? ?? '',
     address: json['address'] as String? ?? '',
+    pinCode: json['pinCode'] as String? ?? '',
   );
 
   @override
@@ -79,8 +84,11 @@ class LocationException implements Exception {
 /// needs on the login/registration screens: check that location services
 /// are on, request permission if needed, then fetch a single fix.
 class LocationService {
+  final Geocoding _geocoding = Geocoding();
+
   /// Opens the system "Allow location access?" dialog if needed and
-  /// returns the device's current position.
+  /// returns the device's current position, reverse-geocoded into an
+  /// address/city/state/country/pinCode where possible.
   ///
   /// Throws a [LocationException] with a user-friendly message if location
   /// can't be obtained — callers on auth screens should treat this as
@@ -116,42 +124,44 @@ class LocationService {
       ),
     );
 
-    // final placemark = await _reverseGeocode(position.latitude, position.longitude);
+    final placemark = await _reverseGeocode(position.latitude, position.longitude);
 
     return LocationResult(
       latitude: position.latitude,
       longitude: position.longitude,
       accuracy: position.accuracy,
       capturedAt: DateTime.now(),
-      // city: placemark?.city ?? '',
-      // state: placemark?.state ?? '',
-      // country: placemark?.country ?? '',
-      // address: placemark?.address ?? '',
+      city: placemark?.city ?? '',
+      state: placemark?.state ?? '',
+      country: placemark?.country ?? '',
+      address: placemark?.address ?? '',
+      pinCode: placemark?.pinCode ?? '',
     );
   }
 
-/// Best-effort reverse geocode. Returns null (never throws) if the
-/// device/platform can't resolve a placemark — city/state/address are
-/// a nice-to-have, not something that should block login/registration.
-// Future<_Placemark?> _reverseGeocode(double latitude, double longitude) async {
-//   try {
-//     final placemarks = await placemarkFromCoordinates(latitude, longitude);
-//     if (placemarks.isEmpty) return null;
-//     final p = placemarks.first;
-//     final addressLine = [p.street, p.subLocality, p.locality]
-//         .where((s) => s != null && s.trim().isNotEmpty)
-//         .join(', ');
-//     return _Placemark(
-//       city: p.locality ?? p.subAdministrativeArea ?? '',
-//       state: p.administrativeArea ?? '',
-//       country: p.country ?? '',
-//       address: addressLine,
-//     );
-//   } catch (_) {
-//     // No network, unsupported platform, geocoding API unavailable, etc.
-//     return null;
-//   }
-// }
+  /// Best-effort reverse geocode. Returns null (never throws) if the
+  /// device/platform can't resolve a placemark — city/state/address are
+  /// a nice-to-have, not something that should block login/registration.
+  Future<_Placemark?> _reverseGeocode(double latitude, double longitude) async {
+    try {
+      final placemarks = await _geocoding.placemarkFromCoordinates(latitude, longitude);
+      if (placemarks.isEmpty) return null;
+      final p = placemarks.first;
+      final addressLine = [p.street, p.subLocality, p.locality]
+          .where((s) => s != null && s.trim().isNotEmpty)
+          .join(', ');
+      return _Placemark(
+        city: p.locality ?? p.subAdministrativeArea ?? '',
+        state: p.administrativeArea ?? '',
+        country: p.country ?? '',
+        address: addressLine,
+        pinCode: p.postalCode ?? '',
+      );
+    } catch (_) {
+      // No network, unsupported platform, geocoding API unavailable, etc.
+      return null;
+    }
+  }
 }
 
 class _Placemark {
@@ -160,10 +170,12 @@ class _Placemark {
     required this.state,
     required this.country,
     required this.address,
+    required this.pinCode,
   });
 
   final String city;
   final String state;
   final String country;
   final String address;
+  final String pinCode;
 }
