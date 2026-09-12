@@ -3,8 +3,30 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/controller/buyer_home_controller.dart';
+import '../../../../core/models/property_filter_model.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/widgets/app_image.dart';
+
+/// Converts a typed [PfPropertyData] (from the filter API) into the loose
+/// `Map` shape that `_PropertyCard` and the compare screen already expect,
+/// keeping display fields aligned with the search API's raw map results.
+Map<String, dynamic> _pfPropertyToMap(PfPropertyData p) {
+  return {
+    '_id': p.sId,
+    'propertyId': p.propertyId,
+    'title': p.title,
+    'name': p.title,
+    'locality': p.locality,
+    'address': p.address,
+    'city': p.city,
+    'price': p.price,
+    'bedrooms': p.bedrooms,
+    'furnishing': p.furnishing,
+    'area': p.superBuiltupArea != null ? '${p.superBuiltupArea} sqft' : null,
+    'images': p.images?.map((img) => {'url': img.url}).toList(),
+    'isCompared': p.isCompared,
+  };
+}
 
 class ExproleName extends StatefulWidget {
   ExproleName({super.key});
@@ -21,6 +43,7 @@ class _ExproleNameState extends State<ExproleName> {
   void initState() {
     super.initState();
     controller.searchResultsList.clear();
+    controller.clearPropertyFilters();
   }
 
   @override
@@ -48,10 +71,13 @@ class _ExproleNameState extends State<ExproleName> {
                 slivers: [
                   SliverToBoxAdapter(
                     child: Obx(() {
-                      final count = controller.searchResultsList.length;
+                      final count = controller.isFilterApplied.value
+                          ? controller.filteredResultsList.length
+                          : controller.searchResultsList.length;
                       return _HeaderSection(
                         searchController: searchController,
                         propertyCount: count,
+                        controller: controller,
                         onChanged: (keyword) {
                           setState(() {});
                           controller.searchProperties(keyword);
@@ -66,9 +92,14 @@ class _ExproleNameState extends State<ExproleName> {
                   ),
                   const SliverToBoxAdapter(child: _AiSummaryCard()),
 
-                  // Dynamic Search Results Handler
+                  // Dynamic Search / Filter Results Handler
                   Obx(() {
-                    if (controller.searchLoading.value) {
+                    final isFilterMode = controller.isFilterApplied.value;
+                    final isLoading = isFilterMode
+                        ? controller.filterLoading.value
+                        : controller.searchLoading.value;
+
+                    if (isLoading) {
                       return const SliverFillRemaining(
                         child: Center(
                           child: CircularProgressIndicator(color: Color(0xFF00C896)),
@@ -76,22 +107,43 @@ class _ExproleNameState extends State<ExproleName> {
                       );
                     }
 
-                    final results = controller.searchResultsList;
+                    // Filter mode uses typed PfPropertyData; search mode uses raw dynamic maps.
+                    final List<dynamic> results = isFilterMode
+                        ? controller.filteredResultsList
+                        : controller.searchResultsList;
 
-                    if (searchController.text.trim().isEmpty || results.isEmpty) {
+                    final bool showEmptyState = isFilterMode
+                        ? results.isEmpty
+                        : (searchController.text.trim().isEmpty || results.isEmpty);
+
+                    if (showEmptyState) {
+                      final String emptyMessage = isFilterMode
+                          ? 'No properties match your filters'
+                          : (searchController.text.trim().isEmpty
+                          ? 'Type something to search properties'
+                          : 'No properties found');
                       return SliverFillRemaining(
                         child: Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.search_rounded, size: 48.sp, color: const Color(0xFF94A3B8)),
+                              Icon(
+                                isFilterMode ? Icons.filter_alt_off_rounded : Icons.search_rounded,
+                                size: 48.sp,
+                                color: const Color(0xFF94A3B8),
+                              ),
                               SizedBox(height: 10.h),
                               Text(
-                                searchController.text.trim().isEmpty
-                                    ? 'Type something to search properties'
-                                    : 'No properties found',
+                                emptyMessage,
                                 style: GoogleFonts.poppins(color: const Color(0xFF64748B), fontSize: 13.sp, fontWeight: FontWeight.w500),
                               ),
+                              if (isFilterMode) ...[
+                                SizedBox(height: 12.h),
+                                TextButton(
+                                  onPressed: controller.clearPropertyFilters,
+                                  child: Text('Clear Filters', style: GoogleFonts.poppins(color: const Color(0xFF00C896), fontWeight: FontWeight.w600)),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -101,12 +153,19 @@ class _ExproleNameState extends State<ExproleName> {
                     return SliverList(
                       delegate: SliverChildBuilderDelegate(
                             (context, index) {
-                          final property = results[index];
+                          final rawProperty = results[index];
+                          final property = isFilterMode
+                              ? _pfPropertyToMap(rawProperty as PfPropertyData)
+                              : rawProperty as Map;
                           return _PropertyCard(
                             property: property,
                             onCompareChanged: (val) {
                               setState(() {
-                                property['isCompared'] = val ?? false;
+                                if (isFilterMode) {
+                                  (rawProperty as PfPropertyData).isCompared = val ?? false;
+                                } else {
+                                  property['isCompared'] = val ?? false;
+                                }
                               });
                             },
                           );
@@ -123,7 +182,10 @@ class _ExproleNameState extends State<ExproleName> {
 
             // Floating Compare Bar with Navigation to ComparePropertiesScreen
             Obx(() {
-              final results = controller.searchResultsList;
+              final isFilterMode = controller.isFilterApplied.value;
+              final List<dynamic> results = isFilterMode
+                  ? controller.filteredResultsList.map(_pfPropertyToMap).toList()
+                  : controller.searchResultsList.map((e) => e as Map).toList();
               final comparedList = results.where((p) => p['isCompared'] == true).toList();
               final comparedCount = comparedList.length;
 
@@ -146,18 +208,245 @@ class _ExproleNameState extends State<ExproleName> {
   }
 }
 
+void _showFilterSheet(BuildContext context, BuyerHomeController controller) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _FilterBottomSheet(controller: controller),
+  );
+}
+
+// --- Filter Bottom Sheet (GET /api/newproperties/filter) ---
+class _FilterBottomSheet extends StatefulWidget {
+  final BuyerHomeController controller;
+  const _FilterBottomSheet({required this.controller});
+
+  @override
+  State<_FilterBottomSheet> createState() => _FilterBottomSheetState();
+}
+
+class _FilterBottomSheetState extends State<_FilterBottomSheet> {
+  String? transactionType;
+  String? category;
+  bool onlyVerified = false;
+  final TextEditingController cityController = TextEditingController();
+  final TextEditingController minPriceController = TextEditingController();
+  final TextEditingController maxPriceController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill from currently applied filters, if any.
+    final applied = widget.controller.currentAppliedFilters.value;
+    if (applied != null) {
+      transactionType = applied.transactionType;
+      category = applied.category;
+      onlyVerified = applied.propertyVerificationStatus == 'verified';
+      cityController.text = applied.city ?? '';
+      minPriceController.text = applied.minPrice?.toString() ?? '';
+      maxPriceController.text = applied.maxPrice?.toString() ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    cityController.dispose();
+    minPriceController.dispose();
+    maxPriceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 16.w,
+        right: 16.w,
+        top: 16.h,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16.h,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40.w,
+                height: 4.h,
+                margin: EdgeInsets.only(bottom: 16.h),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Filter Properties',
+                    style: GoogleFonts.poppins(fontSize: 16.sp, fontWeight: FontWeight.w700)),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      transactionType = null;
+                      category = null;
+                      onlyVerified = false;
+                      cityController.clear();
+                      minPriceController.clear();
+                      maxPriceController.clear();
+                    });
+                    widget.controller.clearPropertyFilters();
+                  },
+                  child: Text('Reset', style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12.sp)),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            Text('Transaction Type', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+            SizedBox(height: 8.h),
+            Wrap(
+              spacing: 8.w,
+              children: ['Buy', 'Rent', 'Lease']
+                  .map((t) => _chip(t, transactionType == t, () {
+                setState(() => transactionType = transactionType == t ? null : t);
+              }))
+                  .toList(),
+            ),
+            SizedBox(height: 16.h),
+            Text('Category', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+            SizedBox(height: 8.h),
+            Wrap(
+              spacing: 8.w,
+              children: ['Residential', 'Commercial', 'Plot']
+                  .map((c) => _chip(c, category == c, () {
+                setState(() => category = category == c ? null : c);
+              }))
+                  .toList(),
+            ),
+            SizedBox(height: 16.h),
+            Text('City', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+            SizedBox(height: 8.h),
+            TextField(
+              controller: cityController,
+              decoration: InputDecoration(
+                hintText: 'Enter city',
+                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Text('Price Range', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+            SizedBox(height: 8.h),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: minPriceController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'Min',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: TextField(
+                    controller: maxPriceController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: 'Max',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Checkbox(
+                  value: onlyVerified,
+                  onChanged: (v) => setState(() => onlyVerified = v ?? false),
+                  activeColor: const Color(0xFF00C896),
+                ),
+                Text('Only verified properties', style: GoogleFonts.poppins(fontSize: 12.sp)),
+              ],
+            ),
+            SizedBox(height: 20.h),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.controller.applyPropertyFilters(
+                    transactionType: transactionType,
+                    category: category,
+                    city: cityController.text.trim().isEmpty ? null : cityController.text.trim(),
+                    minPrice: num.tryParse(minPriceController.text.trim()),
+                    maxPrice: num.tryParse(maxPriceController.text.trim()),
+                    propertyVerificationStatus: onlyVerified ? 'verified' : null,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF173554),
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                ),
+                child: Text('Apply Filters',
+                    style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.sp)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF00C896) : Colors.white,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: selected ? const Color(0xFF00C896) : Colors.grey.shade300),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12.sp,
+            color: selected ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // --- Header Component ---
 class _HeaderSection extends StatelessWidget {
   final TextEditingController searchController;
   final int propertyCount;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final BuyerHomeController controller;
 
   const _HeaderSection({
     required this.searchController,
     required this.propertyCount,
     required this.onChanged,
     required this.onClear,
+    required this.controller,
   });
 
   @override
@@ -206,14 +495,27 @@ class _HeaderSection extends StatelessWidget {
             ),
           ),
           SizedBox(height: 16.h),
-          Text(
-            searchController.text.isEmpty ? 'Explore Properties' : '$propertyCount Properties Found',
-            style: GoogleFonts.poppins(fontSize: 20.sp, fontWeight: FontWeight.w700, color: const Color(0xFF1A2129)),
-          ),
-          Text(
-            searchController.text.isEmpty ? 'Live results based on your search' : 'Live search results matching your query',
-            style: GoogleFonts.poppins(fontSize: 12.sp, color: Colors.grey),
-          ),
+          Obx(() {
+            final isFilterMode = controller.isFilterApplied.value;
+            final showCount = isFilterMode || searchController.text.isNotEmpty;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  showCount ? '$propertyCount Properties Found' : 'Explore Properties',
+                  style: GoogleFonts.poppins(fontSize: 20.sp, fontWeight: FontWeight.w700, color: const Color(0xFF1A2129)),
+                ),
+                Text(
+                  isFilterMode
+                      ? 'Results matching your selected filters'
+                      : (searchController.text.isEmpty
+                      ? 'Live results based on your search'
+                      : 'Live search results matching your query'),
+                  style: GoogleFonts.poppins(fontSize: 12.sp, color: Colors.grey),
+                ),
+              ],
+            );
+          }),
           SizedBox(height: 12.h),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -221,7 +523,12 @@ class _HeaderSection extends StatelessWidget {
               children: [
                 _buildFilterButton(Icons.sort, 'Sort', () {}),
                 SizedBox(width: 8.w),
-                _buildFilterButton(Icons.tune, 'Filters', () {}),
+                Obx(() => _buildFilterButton(
+                  Icons.tune,
+                  controller.isFilterApplied.value ? 'Filters •' : 'Filters',
+                      () => _showFilterSheet(context, controller),
+                  isPrimary: controller.isFilterApplied.value,
+                )),
                 SizedBox(width: 8.w),
                 _buildFilterButton(Icons.map_outlined, 'Map View', () {
                   Get.toNamed(AppRoutes.exploreMap);

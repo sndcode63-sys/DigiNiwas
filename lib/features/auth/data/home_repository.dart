@@ -8,6 +8,7 @@ import '../../../core/models/near_by_agent.dart';
 import '../../../core/models/popular_property.dart';
 import '../../../core/models/propertt_category_filter.dart';
 import '../../../core/models/property_boosted.dart';
+import '../../../core/models/property_filter_model.dart';
 import '../../../core/models/property_new_listing.dart';
 import '../../../core/network/api_service.dart';
 import '../../../core/utils/app_logger.dart';
@@ -86,6 +87,48 @@ class HomeRepository {
     } on DioException catch (e, st) {
       AppLogger.e('Similar properties request failed', e, st);
       return [];
+    }
+  }
+
+  /// GET /api/newproperties/filter
+  Future<PropertyFilterModel> getNewPropertiesFilter({
+    String? city,
+    String? category,
+    String? transactionType,
+    String? status,
+    String? propertyVerificationStatus,
+    num? minPrice,
+    num? maxPrice,
+    int page = 1,
+    int limit = 10,
+  }) async {
+    try {
+      final response = await _apiService.get(
+        ApiConstants.newPropertiesFilter,
+        queryParameters: {
+          if (city != null && city.isNotEmpty) 'city': city,
+          if (category != null && category.isNotEmpty) 'category': category,
+          if (transactionType != null && transactionType.isNotEmpty)
+            'transactionType': transactionType,
+          if (status != null && status.isNotEmpty) 'status': status,
+          if (propertyVerificationStatus != null && propertyVerificationStatus.isNotEmpty)
+            'propertyVerificationStatus': propertyVerificationStatus,
+          if (minPrice != null) 'minPrice': minPrice,
+          if (maxPrice != null) 'maxPrice': maxPrice,
+          'page': page,
+          'limit': limit,
+        },
+      );
+      final data = response.data;
+      if (data is! Map || data['success'] == false) {
+        throw HomeFeedException(
+          _messageOrFallback(data, 'Could not load filtered properties.'),
+        );
+      }
+      return PropertyFilterModel.fromJson(Map<String, dynamic>.from(data));
+    } on DioException catch (e, st) {
+      AppLogger.e('New properties filter request failed', e, st);
+      throw HomeFeedException(_extractMessage(e));
     }
   }
 

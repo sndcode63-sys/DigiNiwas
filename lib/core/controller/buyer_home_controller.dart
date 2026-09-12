@@ -10,6 +10,7 @@ import '../../../../core/network/api_service.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../features/auth/data/home_repository.dart';
+import '../models/property_filter_model.dart';
 import '../storage/storage_service.dart';
 
 /// GetX controller for the Buyer Home screen and saved properties workflow.
@@ -58,6 +59,13 @@ class BuyerHomeController extends GetxController {
   // Search reactive state
   final RxList<dynamic> searchResultsList = <dynamic>[].obs;
   final RxBool searchLoading = false.obs;
+
+  // Filter reactive state (GET /api/newproperties/filter)
+  final RxList<PfPropertyData> filteredResultsList = <PfPropertyData>[].obs;
+  final RxBool filterLoading = false.obs;
+  final RxBool isFilterApplied = false.obs;
+  final Rxn<PfAppliedFilters> currentAppliedFilters = Rxn<PfAppliedFilters>();
+  final RxnString filterError = RxnString();
 
   /// Buyer's first name, shown in the header greeting/avatar initials.
   final RxString buyerName = 'Guest'.obs;
@@ -110,6 +118,50 @@ class BuyerHomeController extends GetxController {
     } finally {
       searchLoading.value = false;
     }
+  }
+
+  /// GET /api/newproperties/filter
+  Future<void> applyPropertyFilters({
+    String? city,
+    String? category,
+    String? transactionType,
+    String? status,
+    String? propertyVerificationStatus,
+    num? minPrice,
+    num? maxPrice,
+  }) async {
+    filterLoading.value = true;
+    filterError.value = null;
+    try {
+      final result = await _homeRepository.getNewPropertiesFilter(
+        city: city,
+        category: category,
+        transactionType: transactionType,
+        status: status,
+        propertyVerificationStatus: propertyVerificationStatus,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+      );
+      filteredResultsList.value = result.data ?? result.properties ?? [];
+      currentAppliedFilters.value = result.appliedFilters;
+      isFilterApplied.value = true;
+    } on HomeFeedException catch (e) {
+      filteredResultsList.clear();
+      filterError.value = e.message;
+    } catch (_) {
+      filteredResultsList.clear();
+      filterError.value = 'Could not apply filters. Try again.';
+    } finally {
+      filterLoading.value = false;
+    }
+  }
+
+  /// Clears active filters and returns the screen to its default state.
+  void clearPropertyFilters() {
+    filteredResultsList.clear();
+    currentAppliedFilters.value = null;
+    isFilterApplied.value = false;
+    filterError.value = null;
   }
 
   Future<void> _loadBuyerNameAndSavedProperties() async {

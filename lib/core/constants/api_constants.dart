@@ -68,6 +68,10 @@ class ApiConstants {
   // GET /properties/filter
   static const String filterProperties = '/properties/filter';
 
+  // New Properties Filter
+  // GET /api/newproperties/filter (baseUrl already includes /api)
+  static const String newPropertiesFilter = '/newproperties/filter';
+
   // GET /properties/:id
   static const String getPropertyById = '/properties';
 
