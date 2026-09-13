@@ -30,7 +30,10 @@ dependencies:
   firebase_messaging: ^15.0.4
   flutter_local_notifications: ^17.2.2
   image_picker: ^1.1.2
+  http_parser: ^4.0.2
   google_maps_flutter: ^2.5.3
+#  file_picker: ^8.0.0 # ya latest version
+
   # Responsive sizing
   flutter_screenutil: ^5.9.3
   flutter_svg: ^2.3.0
@@ -41,6 +44,7 @@ dependencies:
   panorama_viewer: ^2.0.7
   url_launcher: ^6.3.0
   share_plus: ^12.0.2
+
   # Logging
   logger: ^2.4.0
   google_fonts: ^6.2.1
