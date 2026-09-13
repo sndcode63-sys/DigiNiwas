@@ -1,9 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../../../core/controller/partner_home_controller.dart';
 import '../../../../core/network/api_service.dart';
@@ -261,7 +260,7 @@ class AgentAddPropertyFlowScreen extends StatefulWidget {
 class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen> {
   late final AgentAddPropertyViewModel _viewModel;
   late final PageController _pageController;
-  late final MapController _mapController;
+  GoogleMapController? _googleMapController;
   bool _submitting = false;
   bool _locating = false;
 
@@ -271,7 +270,6 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
     ensurePartnerHomeController();
     _viewModel = AgentAddPropertyViewModel();
     _pageController = PageController();
-    _mapController = MapController();
     _viewModel.addListener(_onViewModelChanged);
     final args = Get.arguments;
     if (args is Map) {
@@ -292,7 +290,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
         curve: Curves.easeInOut,
       );
     }
-    setState(() {});
+    setState(() {}); // 👈 Fixed here (added parentheses)
   }
 
   @override
@@ -300,7 +298,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
     _viewModel.removeListener(_onViewModelChanged);
     _viewModel.dispose();
     _pageController.dispose();
-    _mapController.dispose();
+    _googleMapController?.dispose();
     super.dispose();
   }
 
@@ -317,7 +315,6 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
     return int.tryParse(match?.group(1) ?? '') ?? 1;
   }
 
-  /// Backend enums (Postman): Sale | Rent — UI uses Sell/Rent.
   String _mapTransactionType(String uiValue) {
     switch (uiValue.trim().toLowerCase()) {
       case 'sell':
@@ -331,8 +328,6 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
     }
   }
 
-  /// Backend category enum: Residential | Commercial.
-  /// UI property chips (Apartment/House/Plot/Commercial) map into that.
   String _mapCategory(String propertyType) {
     switch (propertyType.trim().toLowerCase()) {
       case 'commercial':
@@ -355,10 +350,10 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
       final point = LatLng(result.latitude, result.longitude);
       _viewModel.updateField(pinLocation: point);
       try {
-        _mapController.move(point, 16);
-      } catch (_) {
-        // Map may not be mounted yet on earlier steps.
-      }
+        _googleMapController?.animateCamera(
+          CameraUpdate.newCameraPosition(CameraPosition(target: point, zoom: 16)),
+        );
+      } catch (_) {}
       Get.snackbar(
         'Location',
         'Pin updated to your current location',
@@ -862,6 +857,14 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
       if (_viewModel.model.city.trim().isNotEmpty) _viewModel.model.city,
     ].join(', ');
 
+    final Set<Marker> googleMarkers = {
+      Marker(
+        markerId: const MarkerId('selected_pin'),
+        position: pin,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+      ),
+    };
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -881,10 +884,10 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
               onPressed: _locating ? null : _useCurrentLocation,
               icon: _locating
                   ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
                   : const Icon(Icons.my_location, size: 16),
               label: Text(_locating ? 'Locating…' : 'Use my location'),
               style: TextButton.styleFrom(foregroundColor: kPrimaryTeal),
@@ -898,36 +901,20 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
             height: 220,
             child: Stack(
               children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: pin,
-                    initialZoom: 15.0,
-                    onTap: (tapPosition, point) {
-                      _viewModel.updateField(pinLocation: point);
-                    },
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: pin,
+                    zoom: 15.0,
                   ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.diginiwas.app',
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: pin,
-                          width: 40,
-                          height: 40,
-                          child: const Icon(
-                            Icons.location_on,
-                            color: kPrimaryTeal,
-                            size: 38,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  markers: googleMarkers,
+                  onMapCreated: (controller) {
+                    _googleMapController = controller;
+                  },
+                  onTap: (point) {
+                    _viewModel.updateField(pinLocation: point);
+                  },
+                  zoomControlsEnabled: false,
+                  myLocationButtonEnabled: false,
                 ),
                 Positioned(
                   bottom: 0,
@@ -935,7 +922,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
                   right: 0,
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                     color: Colors.white.withValues(alpha: 0.95),
                     child: Row(
                       children: [
@@ -948,7 +935,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
                                 ? 'Pinned: ${pin.latitude.toStringAsFixed(5)}, ${pin.longitude.toStringAsFixed(5)}'
                                 : 'Pinned to: $place',
                             style:
-                                const TextStyle(fontSize: 10, color: kGreyText),
+                            const TextStyle(fontSize: 10, color: kGreyText),
                           ),
                         ),
                         const Text(
@@ -2039,17 +2026,8 @@ class _DashedBorderPainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
 
-    // Fallback safe solid/dashed drawing representation for cross-version support
-
-    // Draw dashed lines manually using bounds safely
-    double distance = 0;
-    const dashWidth = 5.0;
-    const dashSpace = 4.0;
-
-    // Safe standard canvas border fallback to prevent computeMetrics compilation errors
     canvas.drawRRect(rrect, paint);
   }
-
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;

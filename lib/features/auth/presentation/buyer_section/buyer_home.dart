@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:diginiwas/features/auth/presentation/buyer_section/save_properties_screen.dart';
 import 'package:diginiwas/features/auth/presentation/buyer_section/show_profile_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart' hide LatLng;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/controller/buyer_home_controller.dart';
 import '../../../../core/storage/secure_storage_service.dart';
@@ -961,45 +961,20 @@ class HomeScreen extends StatelessWidget {
         ? LatLng(mapDetails!.center!.latitude ?? 22.7533, mapDetails.center!.longitude ?? 75.8937)
         : const LatLng(22.7533, 75.8937);
 
-    final List<Marker> mapMarkers = [];
+    final Set<Marker> googleMarkers = {};
     if (mapDetails?.markers != null) {
       for (var m in mapDetails!.markers!) {
         if (m.latitude != null && m.longitude != null) {
           final isProperty = m.markerType == 'PROPERTY';
-          mapMarkers.add(
+          googleMarkers.add(
             Marker(
-              point: LatLng(m.latitude!, m.longitude!),
-              width: isProperty ? 36.w : 28.w,
-              height: isProperty ? 36.w : 28.w,
-              child: GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${m.name ?? "Location"} (${m.markerType})'))
-                  );
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isProperty ? const Color(0xFF007A5E) : Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isProperty ? Colors.white : amenityColor(m.markerType),
-                      width: 2.w,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    isProperty ? Icons.home_rounded : amenityIcon(m.markerType),
-                    color: isProperty ? Colors.white : amenityColor(m.markerType),
-                    size: isProperty ? 18.sp : 14.sp,
-                  ),
-                ),
-              ),
+              markerId: MarkerId('${m.latitude}_${m.longitude}'),
+              position: LatLng(m.latitude!, m.longitude!),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${m.name ?? "Location"} (${m.markerType})')),
+                );
+              },
             ),
           );
         }
@@ -1027,18 +1002,14 @@ class HomeScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(20.r),
               child: Stack(
                 children: [
-                  FlutterMap(
-                    options: MapOptions(
-                      initialCenter: centerLocation,
-                      initialZoom: mapDetails?.zoom?.toDouble() ?? 14.0,
+                  GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: centerLocation,
+                      zoom: mapDetails?.zoom?.toDouble() ?? 14.0,
                     ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.diginiwas',
-                      ),
-                      MarkerLayer(markers: mapMarkers),
-                    ],
+                    markers: googleMarkers,
+                    zoomControlsEnabled: false,
+                    myLocationButtonEnabled: false,
                   ),
                   Positioned(
                     left: 12.w,
@@ -1075,7 +1046,7 @@ class HomeScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                '${mapMarkers.length} markers loaded on map',
+                                '${googleMarkers.length} markers loaded on map',
                                 style: GoogleFonts.poppins(
                                   fontSize: 10.sp,
                                   color: const Color(0xFF64748B),
@@ -1115,7 +1086,6 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildNewListings() {
     if (controller.isLoading.value) {
       return _sectionLoader(height: 240);
@@ -1946,7 +1916,6 @@ class ExploreMapViewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     final BuyerHomeController controller = Get.find<BuyerHomeController>();
 
     return Scaffold(
@@ -1971,41 +1940,16 @@ class ExploreMapViewScreen extends StatelessWidget {
             ? LatLng(mapDetails!.center!.latitude ?? 22.7533, mapDetails.center!.longitude ?? 75.8937)
             : const LatLng(22.7533, 75.8937);
 
-        final List<Marker> mapMarkers = [];
+        final Set<Marker> googleMarkers = {};
         if (mapDetails?.markers != null) {
           for (var m in mapDetails!.markers!) {
             if (m.latitude == null || m.longitude == null) continue;
             final isProperty = m.markerType == 'PROPERTY';
-            mapMarkers.add(
+            googleMarkers.add(
               Marker(
-                point: LatLng(m.latitude!, m.longitude!),
-                width: isProperty ? 42.w : 32.w,
-                height: isProperty ? 42.w : 32.w,
-                child: GestureDetector(
-                  onTap: () => _showMarkerDetailSheet(context, m, isProperty),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isProperty ? const Color(0xFF007A5E) : Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isProperty ? Colors.white : amenityColor(m.markerType),
-                        width: 2.w,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      isProperty ? Icons.home_rounded : amenityIcon(m.markerType),
-                      color: isProperty ? Colors.white : amenityColor(m.markerType),
-                      size: isProperty ? 20.sp : 15.sp,
-                    ),
-                  ),
-                ),
+                markerId: MarkerId('${m.latitude}_${m.longitude}'),
+                position: LatLng(m.latitude!, m.longitude!),
+                onTap: () => _showMarkerDetailSheet(context, m, isProperty),
               ),
             );
           }
@@ -2013,18 +1957,14 @@ class ExploreMapViewScreen extends StatelessWidget {
 
         return Stack(
           children: [
-            FlutterMap(
-              options: MapOptions(
-                initialCenter: centerLocation,
-                initialZoom: mapDetails?.zoom?.toDouble() ?? 14.0,
+            GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: centerLocation,
+                zoom: mapDetails?.zoom?.toDouble() ?? 14.0,
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.diginiwas',
-                ),
-                MarkerLayer(markers: mapMarkers),
-              ],
+              markers: googleMarkers,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: true,
             ),
 
             // Top bar: back button + real property title
@@ -2083,7 +2023,7 @@ class ExploreMapViewScreen extends StatelessWidget {
               ),
             ),
 
-            // Radius selector chips — re-calls the API at a new radius
+            // Radius selector chips
             Positioned(
               top: 100.h,
               left: 20.w,
@@ -2123,32 +2063,6 @@ class ExploreMapViewScreen extends StatelessWidget {
               ),
             ),
 
-            // Small "updating" pill shown while re-fetching for a new radius
-            if (controller.exploreLoading.value)
-              Positioned(
-                top: 148.h,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 14.w,
-                          height: 14.w,
-                          child: const CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF007A5E)),
-                        ),
-                        SizedBox(width: 8.w),
-                        Text('Updating nearby places...', style: GoogleFonts.poppins(fontSize: 10.5.sp, color: const Color(0xFF64748B))),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
             // Bottom card: marker count + legend + directions
             Positioned(
               left: 16.w,
@@ -2170,7 +2084,7 @@ class ExploreMapViewScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '${mapMarkers.length} places found',
+                          '${googleMarkers.length} places found',
                           style: GoogleFonts.poppins(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
                         ),
                         GestureDetector(
@@ -2195,17 +2109,6 @@ class ExploreMapViewScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    SizedBox(height: 10.h),
-                    Wrap(
-                      spacing: 10.w,
-                      runSpacing: 6.h,
-                      children: [
-                        _legendDot(const Color(0xFF007A5E), 'Property'),
-                        _legendDot(const Color(0xFF3B82F6), 'Education'),
-                        _legendDot(const Color(0xFFEF4444), 'Healthcare'),
-                        _legendDot(const Color(0xFFEAB308), 'Food'),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -2213,17 +2116,6 @@ class ExploreMapViewScreen extends StatelessWidget {
           ],
         );
       }),
-    );
-  }
-
-  Widget _legendDot(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(width: 8.w, height: 8.w, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        SizedBox(width: 4.w),
-        Text(label, style: GoogleFonts.poppins(fontSize: 9.5.sp, color: const Color(0xFF64748B))),
-      ],
     );
   }
 
@@ -2241,20 +2133,12 @@ class ExploreMapViewScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(fontSize: 12.5.sp, color: const Color(0xFF64748B)),
             ),
-            SizedBox(height: 14.h),
-            TextButton(
-              onPressed: () => Get.back(),
-              child: Text('Go Back', style: GoogleFonts.poppins(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF007A5E))),
-            ),
           ],
         ),
       ),
     );
   }
 
-  /// Bottom sheet shown when a marker on the full-screen map is tapped —
-  /// shows the place name, distance (if available), and a "Get Directions"
-  /// button that opens Google Maps via the marker's directionsUrl/mapUrl.
   void _showMarkerDetailSheet(BuildContext context, dynamic marker, bool isProperty) {
     showModalBottomSheet(
       context: context,
@@ -2270,8 +2154,8 @@ class ExploreMapViewScreen extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    isProperty ? Icons.home_rounded : amenityIcon(marker.markerType),
-                    color: isProperty ? const Color(0xFF007A5E) : amenityColor(marker.markerType),
+                    isProperty ? Icons.home_rounded : Icons.place,
+                    color: isProperty ? const Color(0xFF007A5E) : Colors.blue,
                     size: 22.sp,
                   ),
                   SizedBox(width: 8.w),
@@ -2283,13 +2167,6 @@ class ExploreMapViewScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              if (marker.distanceKm != null) ...[
-                SizedBox(height: 8.h),
-                Text(
-                  '${marker.distanceKm is double ? (marker.distanceKm as double).toStringAsFixed(1) : marker.distanceKm} km away',
-                  style: GoogleFonts.poppins(fontSize: 11.5.sp, color: const Color(0xFF64748B)),
-                ),
-              ],
               SizedBox(height: 16.h),
               SizedBox(
                 width: double.infinity,
@@ -2318,7 +2195,6 @@ class ExploreMapViewScreen extends StatelessWidget {
     );
   }
 }
-
 
 class HeroBannerCarousel extends StatefulWidget {
   final List<String> imageUrls;

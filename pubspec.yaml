@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+
   # State management & routing (GetX)
   get: ^4.6.6
 
@@ -24,14 +25,15 @@ dependencies:
   # Secure storage (tokens)
   flutter_secure_storage: ^9.2.2
   shared_preferences: ^2.3.2
+  google_maps_flutter: ^2.18.0
 
   # Push notifications
+
   firebase_core: ^3.3.0
   firebase_messaging: ^15.0.4
   flutter_local_notifications: ^17.2.2
   image_picker: ^1.1.2
   http_parser: ^4.0.2
-  google_maps_flutter: ^2.5.3
 #  file_picker: ^8.0.0 # ya latest version
 
   # Responsive sizing
@@ -39,11 +41,11 @@ dependencies:
   flutter_svg: ^2.3.0
   cached_network_image: ^3.4.1
   geocoding: ^5.0.0
-  flutter_map: ^7.0.2
   latlong2: ^0.9.1
   panorama_viewer: ^2.0.7
   url_launcher: ^6.3.0
   share_plus: ^12.0.2
+
 
   # Logging
   logger: ^2.4.0

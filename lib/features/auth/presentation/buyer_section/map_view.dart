@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:get/get.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapViewScreen extends StatefulWidget {
   const MapViewScreen({Key? key}) : super(key: key);
@@ -21,7 +20,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
 
   final LatLng _ahmedabadCenter = const LatLng(23.0225, 72.5714);
 
-  final List<Map<String, dynamic>> _properties = [
+  final List<Map<String, dynamic>> _allProperties = [
     {
       'title': 'Celestial Heights',
       'location': 'Bopal, Ahmedabad',
@@ -54,6 +53,35 @@ class _MapViewScreenState extends State<MapViewScreen> {
     },
   ];
 
+  late List<Map<String, dynamic>> _filteredProperties;
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredProperties = _allProperties;
+
+    // 🔍 Search query listener to filter list dynamically as user types
+    _searchController.addListener(_filterProperties);
+  }
+
+  void _filterProperties() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredProperties = _allProperties.where((property) {
+        final title = property['title'].toLowerCase();
+        final location = property['location'].toLowerCase();
+        return title.contains(query) || location.contains(query);
+      }).toList();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _sheetController.dispose();
+    super.dispose();
+  }
+
   // Function to bring the sheet back up smoothly
   void _resetSheetPosition() {
     _sheetController.animateTo(
@@ -65,41 +93,36 @@ class _MapViewScreenState extends State<MapViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Google Maps ke liye markers set tayyar kiye ja rahe hain
+    final Set<Marker> googleMarkers = {
+      Marker(
+        markerId: const MarkerId('marker_1'),
+        position: const LatLng(23.0338, 72.5850),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        onTap: () {},
+      ),
+      Marker(
+        markerId: const MarkerId('marker_2'),
+        position: const LatLng(23.0100, 72.5500),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        onTap: () {},
+      ),
+    };
+
     return Scaffold(
       body: SafeArea(
         child: Stack(
           children: [
-
-
-            // 1. Map View Background
-            FlutterMap(
-              options: MapOptions(
-                initialCenter: _ahmedabadCenter,
-                initialZoom: 13.0,
+            // 1. Google Map View Background
+            GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: _ahmedabadCenter,
+                zoom: 13.0,
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.diginiwas',
-                ),
-
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: const LatLng(23.0338, 72.5850),
-                      width: 80,
-                      height: 40,
-                      child: _buildMapPriceMarker('₹85 L', true),
-                    ),
-                    Marker(
-                      point: const LatLng(23.0100, 72.5500),
-                      width: 80,
-                      height: 40,
-                      child: _buildMapPriceMarker('₹68 L', false),
-                    ),
-                  ],
-                ),
-              ],
+              markers: googleMarkers,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
             ),
 
             // 2. Foreground UI Overlays (Header, Search, Tabs, and Filter Chips)
@@ -149,7 +172,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Search Bar
+                        // Search Bar with clear button functionality support
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
@@ -177,6 +200,14 @@ class _MapViewScreenState extends State<MapViewScreen> {
                                   ),
                                 ),
                               ),
+                              if (_searchController.text.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    _searchController.clear();
+                                  },
+                                  child: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                                ),
+                              const SizedBox(width: 4),
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
@@ -278,7 +309,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Filter Chips Row Added Back
+                        // Filter Chips Row
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
@@ -302,7 +333,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
             DraggableScrollableSheet(
               controller: _sheetController,
               initialChildSize: 0.38,
-              minChildSize: 0.0, // Allows bottom sheet to collapse entirely out of view
+              minChildSize: 0.0,
               maxChildSize: 0.85,
               builder: (context, scrollController) {
                 return Container(
@@ -321,7 +352,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                     ],
                   ),
                   child: SafeArea(
-                    top: false, // Ensures safe area applies exclusively to bottom system bar padding
+                    top: false,
                     child: Column(
                       children: [
                         const SizedBox(height: 8),
@@ -339,9 +370,9 @@ class _MapViewScreenState extends State<MapViewScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                '12 homes in this area',
-                                style: TextStyle(
+                              Text(
+                                '${_filteredProperties.length} homes in this area',
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -363,12 +394,19 @@ class _MapViewScreenState extends State<MapViewScreen> {
                           ),
                         ),
                         Expanded(
-                          child: ListView.builder(
+                          child: _filteredProperties.isEmpty
+                              ? const Center(
+                            child: Text(
+                              'No properties found matching your search.',
+                              style: TextStyle(color: Colors.grey, fontSize: 13),
+                            ),
+                          )
+                              : ListView.builder(
                             controller: scrollController,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _properties.length,
+                            itemCount: _filteredProperties.length,
                             itemBuilder: (context, index) {
-                              return _buildDetailedPropertyCard(_properties[index]);
+                              return _buildDetailedPropertyCard(_filteredProperties[index]);
                             },
                           ),
                         ),
@@ -387,36 +425,6 @@ class _MapViewScreenState extends State<MapViewScreen> {
         backgroundColor: const Color(0xFF0F4C3A),
         icon: const Icon(Icons.keyboard_arrow_up, color: Colors.white),
         label: const Text('Show Properties', style: TextStyle(color: Colors.white)),
-      ),
-    );
-  }
-
-  Widget _buildMapPriceMarker(String price, bool isSelected) {
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF0F4C3A) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSelected ? Colors.white : const Color(0xFF0F4C3A),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Text(
-        price,
-        style: TextStyle(
-          color: isSelected ? Colors.white : const Color(0xFF0F4C3A),
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
       ),
     );
   }
@@ -499,7 +507,6 @@ class _MapViewScreenState extends State<MapViewScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   Text(property['title'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   Text(property['location'], style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
@@ -513,9 +520,9 @@ class _MapViewScreenState extends State<MapViewScreen> {
             width: double.infinity,
             height: 40,
             child: ElevatedButton(
-
               onPressed: () {},
               style: ElevatedButton.styleFrom(
+
                 backgroundColor: const Color(0xFF173554),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),

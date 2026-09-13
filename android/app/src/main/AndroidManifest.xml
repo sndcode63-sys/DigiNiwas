@@ -10,6 +10,8 @@
         android:label="diginiwas"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <meta-data android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyARIwrEJ1n9OzV4Vj9SFIeWSshJKb_9ePc"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
