@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MapViewScreen extends StatefulWidget {
   const MapViewScreen({Key? key}) : super(key: key);
@@ -11,66 +12,45 @@ class MapViewScreen extends StatefulWidget {
 
 class _MapViewScreenState extends State<MapViewScreen> {
   int _selectedTabIndex = 1;
-  final TextEditingController _searchController =
-  TextEditingController(text: '2 BHK in Ahmedabad');
+  final TextEditingController _searchController = TextEditingController();
 
   // Controller to control the position of the draggable bottom sheet programmatically
-  final DraggableScrollableController _sheetController =
-  DraggableScrollableController();
+  final DraggableScrollableController _sheetController = DraggableScrollableController();
 
-  final LatLng _ahmedabadCenter = const LatLng(23.0225, 72.5714);
-
-  final List<Map<String, dynamic>> _allProperties = [
-    {
-      'title': 'Celestial Heights',
-      'location': 'Bopal, Ahmedabad',
-      'price': '₹85 L',
-      'specs': '2 BHK • 1,240 sq.ft',
-      'image': 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600',
-      'isVerified': true,
-      'isReady': true,
-      'isSelected': true,
-    },
-    {
-      'title': 'Green Valley Homes',
-      'location': 'South Bopal, Ahmedabad',
-      'price': '₹68 L',
-      'specs': '2 BHK • 1,100 sq.ft',
-      'image': 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=600',
-      'isVerified': true,
-      'isReady': false,
-      'isSelected': false,
-    },
-    {
-      'title': 'Skyline Heights',
-      'location': 'Thaltej, Ahmedabad',
-      'price': '₹72 L',
-      'specs': '2 BHK • 1,180 sq.ft',
-      'image': 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600',
-      'isVerified': false,
-      'isReady': true,
-      'isSelected': false,
-    },
-  ];
-
-  late List<Map<String, dynamic>> _filteredProperties;
+  late LatLng _centerLocation;
+  dynamic _exploreData;
+  List<dynamic> _markersList = [];
+  List<dynamic> _filteredMarkers = [];
 
   @override
   void initState() {
     super.initState();
-    _filteredProperties = _allProperties;
 
-    // 🔍 Search query listener to filter list dynamically as user types
-    _searchController.addListener(_filterProperties);
+    // 🌐 HomeScreen se pass kiya gaya dynamic data receive kar rahe hain
+    _exploreData = Get.arguments;
+
+    final mapDetails = _exploreData?.map;
+
+    // Center coordinates set karna (Agar API mein na ho toh default location)
+    double lat = mapDetails?.center?.latitude ?? 23.0225;
+    double lng = mapDetails?.center?.longitude ?? 72.5714;
+    _centerLocation = LatLng(lat, lng);
+
+    // Markers list nikalna
+    _markersList = mapDetails?.markers ?? [];
+    _filteredMarkers = _markersList;
+
+    // Search query listener
+    _searchController.addListener(_filterMarkers);
   }
 
-  void _filterProperties() {
+  void _filterMarkers() {
     final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredProperties = _allProperties.where((property) {
-        final title = property['title'].toLowerCase();
-        final location = property['location'].toLowerCase();
-        return title.contains(query) || location.contains(query);
+      _filteredMarkers = _markersList.where((m) {
+        final name = (m.name ?? '').toLowerCase();
+        final type = (m.markerType ?? '').toLowerCase();
+        return name.contains(query) || type.contains(query);
       }).toList();
     });
   }
@@ -82,10 +62,9 @@ class _MapViewScreenState extends State<MapViewScreen> {
     super.dispose();
   }
 
-  // Function to bring the sheet back up smoothly
   void _resetSheetPosition() {
     _sheetController.animateTo(
-      0.38, // Initial visible height
+      0.38,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
@@ -93,31 +72,35 @@ class _MapViewScreenState extends State<MapViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Google Maps ke liye markers set tayyar kiye ja rahe hain
-    final Set<Marker> googleMarkers = {
-      Marker(
-        markerId: const MarkerId('marker_1'),
-        position: const LatLng(23.0338, 72.5850),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        onTap: () {},
-      ),
-      Marker(
-        markerId: const MarkerId('marker_2'),
-        position: const LatLng(23.0100, 72.5500),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        onTap: () {},
-      ),
-    };
+    // 🗺️ Dynamic Google Maps Markers Generator
+    final Set<Marker> googleMarkers = {};
+    for (var m in _filteredMarkers) {
+      if (m.latitude != null && m.longitude != null) {
+        final isProperty = m.markerType == 'PROPERTY';
+        googleMarkers.add(
+          Marker(
+            markerId: MarkerId('${m.latitude}_${m.longitude}'),
+            position: LatLng(m.latitude!, m.longitude!),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              isProperty ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueAzure,
+            ),
+            onTap: () {
+              _showMarkerDetailSheet(context, m, isProperty);
+            },
+          ),
+        );
+      }
+    }
 
     return Scaffold(
       body: SafeArea(
         child: Stack(
           children: [
-            // 1. Google Map View Background
+            // 1. Dynamic Google Map View Background
             GoogleMap(
               initialCameraPosition: CameraPosition(
-                target: _ahmedabadCenter,
-                zoom: 13.0,
+                target: _centerLocation,
+                zoom: _exploreData?.map?.zoom?.toDouble() ?? 14.0,
               ),
               markers: googleMarkers,
               myLocationEnabled: true,
@@ -125,7 +108,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
               zoomControlsEnabled: false,
             ),
 
-            // 2. Foreground UI Overlays (Header, Search, Tabs, and Filter Chips)
+            // 2. Foreground UI Overlays (Header, Search, Tabs)
             SafeArea(
               child: Column(
                 children: [
@@ -172,7 +155,8 @@ class _MapViewScreenState extends State<MapViewScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Search Bar with clear button functionality support
+                        // Search Bar
+// MapViewScreen ke andar yeh search bar wala code hota hai:
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
@@ -192,40 +176,24 @@ class _MapViewScreenState extends State<MapViewScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: TextField(
-                                  controller: _searchController,
+                                  controller: _searchController, // 👈 Yeh text controller input ko handle karta hai
                                   decoration: const InputDecoration(
                                     border: InputBorder.none,
-                                    hintText: 'Search location or property',
+                                    hintText: 'Search nearby place or property',
                                     hintStyle: TextStyle(fontSize: 14),
                                   ),
                                 ),
                               ),
                               if (_searchController.text.isNotEmpty)
                                 GestureDetector(
-                                  onTap: () {
-                                    _searchController.clear();
-                                  },
+                                  onTap: () => _searchController.clear(),
                                   child: const Icon(Icons.clear, size: 18, color: Colors.grey),
                                 ),
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE8F5E9),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Icon(
-                                  Icons.auto_awesome,
-                                  size: 18,
-                                  color: Color(0xFF0F4C3A),
-                                ),
-                              ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 16),
+                        ),                        const SizedBox(height: 16),
 
-                        // Dynamic List / Map Tab Switcher
+                        // Tab Switcher
                         Container(
                           height: 46,
                           padding: const EdgeInsets.all(4),
@@ -251,18 +219,14 @@ class _MapViewScreenState extends State<MapViewScreen> {
                                   child: Container(
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: _selectedTabIndex == 0
-                                          ? const Color(0xFF0F4C3A)
-                                          : Colors.transparent,
+                                      color: _selectedTabIndex == 0 ? const Color(0xFF0F4C3A) : Colors.transparent,
                                       borderRadius: BorderRadius.circular(24),
                                     ),
                                     child: Text(
                                       'List',
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
-                                        color: _selectedTabIndex == 0
-                                            ? Colors.white
-                                            : Colors.grey.shade700,
+                                        color: _selectedTabIndex == 0 ? Colors.white : Colors.grey.shade700,
                                       ),
                                     ),
                                   ),
@@ -274,9 +238,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                                   child: Container(
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: _selectedTabIndex == 1
-                                          ? const Color(0xFF0F4C3A)
-                                          : Colors.transparent,
+                                      color: _selectedTabIndex == 1 ? const Color(0xFF0F4C3A) : Colors.transparent,
                                       borderRadius: BorderRadius.circular(24),
                                     ),
                                     child: Row(
@@ -285,18 +247,14 @@ class _MapViewScreenState extends State<MapViewScreen> {
                                         Icon(
                                           Icons.location_on,
                                           size: 16,
-                                          color: _selectedTabIndex == 1
-                                              ? Colors.white
-                                              : Colors.grey.shade700,
+                                          color: _selectedTabIndex == 1 ? Colors.white : Colors.grey.shade700,
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
                                           'Map',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            color: _selectedTabIndex == 1
-                                                ? Colors.white
-                                                : Colors.grey.shade700,
+                                            color: _selectedTabIndex == 1 ? Colors.white : Colors.grey.shade700,
                                           ),
                                         ),
                                       ],
@@ -307,21 +265,6 @@ class _MapViewScreenState extends State<MapViewScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-
-                        // Filter Chips Row
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _buildFilterChip('Under ₹1 Cr', isDropdown: true),
-                              const SizedBox(width: 8),
-                              _buildFilterChip('Verified', isGreen: true),
-                              const SizedBox(width: 8),
-                              _buildFilterChip('Ready to Move'),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -329,7 +272,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
               ),
             ),
 
-            // 3. Draggable Scrollable Bottom Sheet with SafeArea applied inside
+            // 3. Draggable Scrollable Bottom Sheet with Dynamic API Data
             DraggableScrollableSheet(
               controller: _sheetController,
               initialChildSize: 0.38,
@@ -356,7 +299,6 @@ class _MapViewScreenState extends State<MapViewScreen> {
                     child: Column(
                       children: [
                         const SizedBox(height: 8),
-                        // Drag handle bar
                         Container(
                           width: 40,
                           height: 4,
@@ -371,42 +313,45 @@ class _MapViewScreenState extends State<MapViewScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '${_filteredProperties.length} homes in this area',
+                                '${_filteredMarkers.length} places found nearby',
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              TextButton.icon(
-                                onPressed: () {},
-                                icon: const Icon(Icons.search,
-                                    size: 14, color: Color(0xFF0F4C3A)),
-                                label: const Text(
-                                  'Search this area',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF0F4C3A),
-                                    fontWeight: FontWeight.bold,
+                              if (_exploreData?.property?.mapUrl != null)
+                                TextButton.icon(
+                                  onPressed: () {
+                                    final url = _exploreData.property.mapUrl;
+                                    if (url != null) launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                  },
+                                  icon: const Icon(Icons.directions, size: 14, color: Color(0xFF0F4C3A)),
+                                  label: const Text(
+                                    'Get Directions',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF0F4C3A),
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
                         Expanded(
-                          child: _filteredProperties.isEmpty
+                          child: _filteredMarkers.isEmpty
                               ? const Center(
                             child: Text(
-                              'No properties found matching your search.',
+                              'No locations found matching your search.',
                               style: TextStyle(color: Colors.grey, fontSize: 13),
                             ),
                           )
                               : ListView.builder(
                             controller: scrollController,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _filteredProperties.length,
+                            itemCount: _filteredMarkers.length,
                             itemBuilder: (context, index) {
-                              return _buildDetailedPropertyCard(_filteredProperties[index]);
+                              return _buildDynamicMarkerCard(_filteredMarkers[index]);
                             },
                           ),
                         ),
@@ -419,62 +364,19 @@ class _MapViewScreenState extends State<MapViewScreen> {
           ],
         ),
       ),
-      // Floating Action Button to restore the bottom sheet back onto the screen
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _resetSheetPosition,
         backgroundColor: const Color(0xFF0F4C3A),
         icon: const Icon(Icons.keyboard_arrow_up, color: Colors.white),
-        label: const Text('Show Properties', style: TextStyle(color: Colors.white)),
+        label: const Text('Show Places', style: TextStyle(color: Colors.white)),
       ),
     );
   }
 
-  Widget _buildFilterChip(String label,
-      {bool isDropdown = false, bool isGreen = false}) {
+  // Dynamic Card for API Markers / Places
+  Widget _buildDynamicMarkerCard(dynamic marker) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isGreen ? const Color(0xFFE8F5E9) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isGreen ? const Color(0xFF81C784) : Colors.grey.shade300,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (isGreen)
-            const Padding(
-              padding: EdgeInsets.only(right: 4),
-              child: Icon(Icons.check_circle, size: 14, color: Color(0xFF2E7D32)),
-            ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isGreen ? const Color(0xFF2E7D32) : Colors.black87,
-            ),
-          ),
-          if (isDropdown)
-            const Padding(
-              padding: EdgeInsets.only(left: 4),
-              child: Icon(Icons.keyboard_arrow_down, size: 16),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailedPropertyCard(Map<String, dynamic> property) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -488,49 +390,102 @@ class _MapViewScreenState extends State<MapViewScreen> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              property['image'],
-              height: 140,
-              width: double.infinity,
-              fit: BoxFit.cover,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5E9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.place, color: Color(0xFF0F4C3A)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  marker.name ?? 'Unknown Location',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Type: ${marker.markerType ?? 'General'}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(property['title'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(property['location'], style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
-              ),
-              IconButton(onPressed: () {}, icon: const Icon(Icons.favorite_border, size: 20)),
-            ],
-          ),
-          Text(property['price'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F4C3A))),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 40,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-
-                backgroundColor: const Color(0xFF173554),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text('View Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
+          IconButton(
+            onPressed: () {
+              final url = marker.directionsUrl ?? marker.mapUrl;
+              if (url != null && url.toString().isNotEmpty) {
+                launchUrl(Uri.parse(url.toString()), mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: const Icon(Icons.directions_rounded, color: Color(0xFF0F4C3A)),
           ),
         ],
       ),
+    );
+  }
+
+  // Marker Tap Modal Sheet
+  void _showMarkerDetailSheet(BuildContext context, dynamic marker, bool isProperty) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isProperty ? Icons.home_rounded : Icons.place,
+                    color: isProperty ? const Color(0xFF007A5E) : Colors.blue,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      marker.name ?? 'Location',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    final url = marker.directionsUrl ?? marker.mapUrl;
+                    if (url != null && url.toString().isNotEmpty) {
+                      Navigator.of(ctx).pop();
+                      launchUrl(Uri.parse(url.toString()), mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  icon: const Icon(Icons.directions_rounded, size: 16, color: Colors.white),
+                  label: const Text('Get Directions', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F4C3A),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

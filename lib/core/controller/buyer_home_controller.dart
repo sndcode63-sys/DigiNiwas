@@ -276,11 +276,14 @@ class BuyerHomeController extends GetxController {
         radius: exploreRadius.value,
       );
       exploreLoading.value = false;
+
+      // 👇 Yahan call kar dein taaki data aate hi terminal par print ho jaye
+      await debugCheckExploreNearby();
+
     } catch (_) {
       exploreLoading.value = false;
     }
   }
-
   /// Change the search radius (meters) on the full-screen Explore Map and
   /// re-fetch nearby markers for the currently loaded property.
   Future<void> changeExploreRadius(int radiusMeters) async {
@@ -433,6 +436,30 @@ class BuyerHomeController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
     }
+  }
+
+  /// 🧪 Explore Nearby API data ko console par debug / check karne ke liye test method
+  Future<void> debugCheckExploreNearby() async {
+    print('EXPLORE_DEBUG: -----------------------------------------');
+    print('EXPLORE_DEBUG: exploreLoading value -> ${exploreLoading.value}');
+
+    final explore = exploreNearby.value;
+    if (explore == null) {
+      print('EXPLORE_DEBUG: exploreNearby data is currently NULL or empty.');
+    } else {
+      print('EXPLORE_DEBUG: Property Title -> ${explore.property?.title}');
+      print('EXPLORE_DEBUG: Map Center Lat -> ${explore.map?.center?.latitude}');
+      print('EXPLORE_DEBUG: Map Center Lng -> ${explore.map?.center?.longitude}');
+
+      final markers = explore.map?.markers ?? [];
+      print('EXPLORE_DEBUG: Total Markers found -> ${markers.length}');
+
+      for (int i = 0; i < markers.length; i++) {
+        final m = markers[i];
+        print('EXPLORE_DEBUG: Marker [$i] -> Name: ${m.name}, Type: ${m.markerType}, Lat: ${m.latitude}, Lng: ${m.longitude}');
+      }
+    }
+    print('EXPLORE_DEBUG: -----------------------------------------');
   }
 
   /// Pull-to-refresh: reloads the primary feed, then every secondary section.

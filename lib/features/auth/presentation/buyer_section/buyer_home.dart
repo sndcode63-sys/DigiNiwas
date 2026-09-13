@@ -182,6 +182,9 @@ class HomeScreen extends StatelessWidget {
             SizedBox(height: 8.h),
             _buildExploreMap(context),
             SizedBox(height: 18.h),
+            _buildMapAmenitiesList(),
+            SizedBox(height: 18.h),
+
             _buildSectionTitle(
               'New Listings',
               showViewAll: true,
@@ -1056,8 +1059,8 @@ class HomeScreen extends StatelessWidget {
                           ),
                           GestureDetector(
                             onTap: () {
-                              Get.toNamed(AppRoutes.exploreMap);
-                            },
+                              final exploreData = controller.exploreNearby.value;
+                              Get.toNamed(AppRoutes.exploreMap, arguments: exploreData);                            },
                             child: Container(
                               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
                               decoration: BoxDecoration(
@@ -1080,6 +1083,87 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildMapAmenitiesList() {
+    final explore = controller.exploreNearby.value;
+    final markers = explore?.map?.markers ?? [];
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 👈 Yeh raha heading
+          Text(
+            'Nearby Places & Amenities',
+            style: GoogleFonts.poppins(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          SizedBox(height: 8.h),
+          markers.isEmpty
+              ? Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 14.w),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14.r),
+              border: Border.all(color: const Color(0xFFEDF2F7)),
+            ),
+            child: Text(
+              'No available data',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 12.sp,
+                color: const Color(0xFF64748B),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          )
+              : SizedBox(
+            height: 44.h,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: markers.length,
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              itemBuilder: (context, index) {
+                final m = markers[index];
+                final type = m.markerType ?? 'PLACE';
+                final color = amenityColor(type);
+                final icon = amenityIcon(type);
+
+                return Container(
+                  margin: EdgeInsets.only(right: 8.w),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(color: color.withOpacity(0.3), width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16.sp, color: color),
+                      SizedBox(width: 6.w),
+                      Text(
+                        m.name ?? 'Location',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -2213,9 +2297,9 @@ class _HeroBannerCarouselState extends State<HeroBannerCarousel> {
   @override
   void initState() {
     super.initState();
+
     _pageController = PageController();
 
-    // Har 4 second me auto-slide, agar 1 se zyada banner hai
     if (widget.imageUrls.length > 1) {
       _autoSlideTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
         if (_pageController.hasClients) {
