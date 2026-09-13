@@ -64,6 +64,18 @@ class StorageService {
     return (latitude: lat, longitude: lng);
   }
 
+  Future<Map<String, dynamic>?> getPendingPartnerApplication() async {
+    final prefs = await _prefs;
+    final raw = prefs.getString(StorageKeys.pendingPartnerApplication);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+    return null;
+  }
+
+
   // -----------------------------------------------------------------
   // VISIT TRACKING — locally remembers which visit IDs belong to this
   // device/user so ScheduledVisitsScreen can look up their live status
@@ -190,7 +202,22 @@ class StorageService {
       await prefs.setString(key, value);
     }
   }
+
+  /// Pending partner KYC (before login). Used to resume OTP after 409.
+  Future<void> savePendingPartnerApplication(Map<String, dynamic> data) async {
+    final prefs = await _prefs;
+    await prefs.setString(
+      StorageKeys.pendingPartnerApplication,
+      jsonEncode(data),
+    );
+  }
+  Future<void> clearPendingPartnerApplication() async {
+    final prefs = await _prefs;
+    await prefs.remove(StorageKeys.pendingPartnerApplication);
+  }
+
 }
+
 
 class StorageKeys {
   StorageKeys._();
@@ -212,4 +239,6 @@ class StorageKeys {
   static const String recentlyViewedIds = 'recently_viewed_property_ids';
   static const String enquiryIds = 'enquiry_property_ids';
   static const String localAvatarPath = 'local_avatar_path';
+  static const String pendingPartnerApplication = 'pending_partner_application';
+
 }

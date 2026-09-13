@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/models/seller_model.dart';
 import '../../../core/network/api_service.dart';
@@ -186,7 +190,7 @@ class SellerRepository {
 
       final data = _asMap(response.data);
       _throwIfUnsuccessful(data, fallback: 'Seller registration failed.');
-      
+
       final resData = data['data'] is Map ? data['data'] : data;
       return SellerApplicationModel.fromJson(resData);
     } on DioException catch (e, st) {
@@ -275,7 +279,7 @@ class SellerRepository {
       final response = await _apiService.get(ApiConstants.getSellerById(id));
       final data = _asMap(response.data);
       _throwIfUnsuccessful(data, fallback: 'Could not fetch seller details.');
-      
+
       final sellerMap = (data['data'] is Map && data['data']['seller'] != null)
           ? data['data']['seller']
           : (data['data'] ?? data);
@@ -292,7 +296,7 @@ class SellerRepository {
       final response = await _apiService.get(ApiConstants.getSellerSummary(id));
       final data = _asMap(response.data);
       _throwIfUnsuccessful(data, fallback: 'Could not fetch seller summary.');
-      
+
       final statsMap = data['data'] is Map ? data['data'] : {};
       return SellerSummaryModel.fromJson(statsMap);
     } on DioException catch (e, st) {
@@ -342,6 +346,81 @@ class SellerRepository {
       AppLogger.e('Get Seller Property By ID failed', e, st);
       throw SellerException(_extractMessage(e, fallback: 'Failed to load property details.'));
     }
+  }
+
+  // ===========================================================================
+  // 3b. CREATE PROPERTY — Seller "Add Property" flow
+  // ===========================================================================
+
+  /// Creates a new property listing: POST /api/newproperties
+  ///
+  /// Always sent as `multipart/form-data` (per the API guide) so photos and
+  /// documents can ride along in the same request as the text fields.
+  /// [fields] should contain only JSON-safe scalars/lists — this method
+  /// takes care of stringifying lists (amenities/tags) and attaching files.
+  Future<Map<String, dynamic>> createProperty({
+    required Map<String, dynamic> fields,
+    List<File> images = const [],
+    File? floorPlan,
+    File? reraCertificate,
+    File? video,
+  }) async {
+    try {
+      final formMap = <String, dynamic>{};
+
+      fields.forEach((key, value) {
+        if (value == null) return;
+        if (value is List) {
+          // Backend reads amenities/tags as an array field sent multiple
+          // times under the same key in multipart/form-data.
+          formMap[key] = value.map((e) => e.toString()).toList();
+        } else {
+          formMap[key] = value.toString();
+        }
+      });
+
+      for (final image in images.take(25)) {
+        formMap.putIfAbsent('images', () => <MultipartFile>[]);
+        (formMap['images'] as List).add(await _toMultipart(image));
+      }
+      if (floorPlan != null) {
+        formMap['floorPlan'] = await _toMultipart(floorPlan);
+      }
+      if (reraCertificate != null) {
+        formMap['reraCertificate'] = await _toMultipart(reraCertificate);
+      }
+      if (video != null) {
+        formMap['video'] = await _toMultipart(video);
+      }
+
+      final formData = FormData.fromMap(formMap);
+
+      final response = await _apiService.post(
+        ApiConstants.createNewProperty,
+        data: formData,
+      );
+
+      final data = _asMap(response.data);
+      _throwIfUnsuccessful(data, fallback: 'Could not submit your listing.');
+
+      final resData = data['data'] is Map
+          ? Map<String, dynamic>.from(data['data'])
+          : (data.isNotEmpty ? data : <String, dynamic>{});
+      AppLogger.i('Property created successfully: ${resData['_id'] ?? resData['id'] ?? ''}');
+      return resData;
+    } on DioException catch (e, st) {
+      AppLogger.e('Create Property failed', e, st);
+      throw SellerException(_extractMessage(e, fallback: 'Failed to submit property listing.'));
+    }
+  }
+
+  Future<MultipartFile> _toMultipart(File file) async {
+    final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+    return MultipartFile.fromFile(
+      file.path,
+      filename: file.path.split(Platform.pathSeparator).last,
+      contentType: MediaType.parse(mimeType),
+    );
   }
 
   // ===========================================================================

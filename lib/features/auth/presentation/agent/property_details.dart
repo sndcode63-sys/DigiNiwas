@@ -5,6 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/controller/partner_home_controller.dart';
+import '../../../../core/network/api_service.dart';
+import '../../../../core/routes/app_routes.dart';
+import '../../../../core/services/location_service.dart';
+import '../../data/property_partner_repo.dart';
+
 // ==========================================
 // COLORS & THEME
 // ==========================================
@@ -67,19 +73,19 @@ class PropertySubmissionModel {
     this.carpetArea = 0.0,
     this.possessionStatus = 'Ready to Move',
     this.isLegalOwner = false,
-    this.city = 'Ahmedabad',
-    this.locality = 'Bopal',
-    this.societyName = 'Green Valley Residency',
+    this.city = '',
+    this.locality = '',
+    this.societyName = '',
     this.streetAddress = '',
-    this.pincode = '380058',
-    this.landmark = 'Near TRP Mall',
+    this.pincode = '',
+    this.landmark = '',
     LatLng? pinLocation,
     List<UploadedPhoto>? photos,
     UploadedDocument? titleDeed,
     UploadedDocument? taxReceipt,
     UploadedDocument? occupancyCertificate,
     this.isAgreedToTerms = false,
-    this.qualityScore = 98,
+    this.qualityScore = 0,
   })  : pinLocation = pinLocation ?? const LatLng(23.0338, 72.4607),
         photos = photos ??
             [
@@ -88,12 +94,7 @@ class PropertySubmissionModel {
               UploadedPhoto(label: 'Bedroom'),
             ],
         titleDeed = titleDeed ?? UploadedDocument(),
-        taxReceipt = taxReceipt ??
-            UploadedDocument(
-              status: 'uploaded',
-              fileName: 'Tax_Receipt_2025-26.pdf',
-              fileSize: '2.4 MB',
-            ),
+        taxReceipt = taxReceipt ?? UploadedDocument(),
         occupancyCertificate = occupancyCertificate ?? UploadedDocument();
 
   PropertySubmissionModel copyWith({
@@ -260,13 +261,27 @@ class AgentAddPropertyFlowScreen extends StatefulWidget {
 class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen> {
   late final AgentAddPropertyViewModel _viewModel;
   late final PageController _pageController;
+  late final MapController _mapController;
+  bool _submitting = false;
+  bool _locating = false;
 
   @override
   void initState() {
     super.initState();
+    ensurePartnerHomeController();
     _viewModel = AgentAddPropertyViewModel();
     _pageController = PageController();
+    _mapController = MapController();
     _viewModel.addListener(_onViewModelChanged);
+    final args = Get.arguments;
+    if (args is Map) {
+      final title = args['title']?.toString();
+      final city = args['city']?.toString();
+      _viewModel.updateField(
+        title: (title != null && title.isNotEmpty) ? title : null,
+        city: (city != null && city.isNotEmpty) ? city : null,
+      );
+    }
   }
 
   void _onViewModelChanged() {
@@ -285,6 +300,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
     _viewModel.removeListener(_onViewModelChanged);
     _viewModel.dispose();
     _pageController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -294,6 +310,144 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
 
   void _prevStep() {
     if (_viewModel.currentStep > 0) _viewModel.setStep(_viewModel.currentStep - 1);
+  }
+
+  int _bedroomsFrom(String configuration) {
+    final match = RegExp(r'(\d+)').firstMatch(configuration);
+    return int.tryParse(match?.group(1) ?? '') ?? 1;
+  }
+
+  /// Backend enums (Postman): Sale | Rent — UI uses Sell/Rent.
+  String _mapTransactionType(String uiValue) {
+    switch (uiValue.trim().toLowerCase()) {
+      case 'sell':
+      case 'sale':
+        return 'Sale';
+      case 'rent':
+      case 'lease':
+        return 'Rent';
+      default:
+        return 'Sale';
+    }
+  }
+
+  /// Backend category enum: Residential | Commercial.
+  /// UI property chips (Apartment/House/Plot/Commercial) map into that.
+  String _mapCategory(String propertyType) {
+    switch (propertyType.trim().toLowerCase()) {
+      case 'commercial':
+      case 'office':
+      case 'shop':
+        return 'Commercial';
+      default:
+        return 'Residential';
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final service = Get.isRegistered<LocationService>()
+          ? Get.find<LocationService>()
+          : LocationService();
+      final result = await service.getCurrentLocation();
+      final point = LatLng(result.latitude, result.longitude);
+      _viewModel.updateField(pinLocation: point);
+      try {
+        _mapController.move(point, 16);
+      } catch (_) {
+        // Map may not be mounted yet on earlier steps.
+      }
+      Get.snackbar(
+        'Location',
+        'Pin updated to your current location',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Location',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _submitListing() async {
+    if (_submitting) return;
+    final m = _viewModel.model;
+    if (m.city.trim().isEmpty) {
+      Get.snackbar('Error', 'Select a city on the Location step.',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+    if (m.carpetArea <= 0) {
+      Get.snackbar(
+        'Error',
+        'Enter a valid carpet area (property size) on the Details step.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    if (m.price <= 0) {
+      Get.snackbar('Error', 'Enter a valid price on the Details step.',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      final partnerId = Get.isRegistered<PartnerHomeController>()
+          ? Get.find<PartnerHomeController>().partnerId.value
+          : '';
+      final repo = Get.isRegistered<PartnerRepository>()
+          ? Get.find<PartnerRepository>()
+          : PartnerRepository(ApiService.instance);
+      final bedrooms = _bedroomsFrom(m.configuration);
+      final apiTransactionType = _mapTransactionType(m.transactionType);
+      final apiCategory = _mapCategory(m.propertyType);
+      await repo.createNewProperty({
+        if (partnerId.isNotEmpty) 'partnerId': partnerId,
+        'title': m.title.isEmpty ? '${m.propertyType} in ${m.city}' : m.title,
+        'transactionType': apiTransactionType,
+        'category': apiCategory,
+        'propertyType': m.propertyType,
+        'price': m.price,
+        'configuration': m.configuration,
+        'propertySize': m.carpetArea,
+        'sizeUnit': 'sqft',
+        'carpetArea': m.carpetArea,
+        'superBuiltupArea': m.carpetArea,
+        'bedrooms': bedrooms,
+        'possessionStatus': m.possessionStatus,
+        'city': m.city,
+        'locality': m.locality,
+        'projectName': m.societyName,
+        'address': m.streetAddress,
+        'pinCode': m.pincode,
+        'pincode': m.pincode,
+        'landmark': m.landmark,
+        'latitude': m.pinLocation.latitude,
+        'longitude': m.pinLocation.longitude,
+        'status': 'Draft',
+        'creatorRole': 'Partner',
+        if (partnerId.isNotEmpty) 'creatorId': partnerId,
+      }, imagePaths: m.photos
+          .map((p) => p.imagePath)
+          .whereType<String>()
+          .where((p) => p.isNotEmpty)
+          .toList());
+      if (Get.isRegistered<PartnerHomeController>()) {
+        await Get.find<PartnerHomeController>().loadProperties();
+      }
+      _nextStep();
+    } catch (e) {
+      Get.snackbar('Error', e.toString(), snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -337,9 +491,9 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
           }
         },
       ),
-      title: Row(
+      title: const Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(Icons.home_rounded, color: kPrimaryTeal, size: 20),
           SizedBox(width: 6),
           Text('DigiNiwas', style: TextStyle(color: kDarkNavy, fontWeight: FontWeight.w700, fontSize: 17)),
@@ -348,7 +502,13 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
       centerTitle: false,
       actions: [
         TextButton(
-          onPressed: () {},
+          onPressed: () {
+            Get.snackbar(
+              'Draft',
+              'Use Submit on the review step to save the listing.',
+              snackPosition: SnackPosition.BOTTOM,
+            );
+          },
           child: const Text('Save Draft', style: TextStyle(color: kPrimaryTeal, fontWeight: FontWeight.w600)),
         )
       ],
@@ -363,9 +523,9 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
         icon: const Icon(Icons.arrow_back, color: kDarkNavy),
         onPressed: () => Get.back(),
       ),
-      title: Row(
+      title: const Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(Icons.home_rounded, color: kPrimaryTeal, size: 20),
           SizedBox(width: 6),
           Text('DigiNiwas', style: TextStyle(color: kDarkNavy, fontWeight: FontWeight.w700, fontSize: 17)),
@@ -373,7 +533,16 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
       ),
       centerTitle: false,
       actions: [
-        IconButton(icon: const Icon(Icons.help_outline, color: kDarkNavy), onPressed: () {}),
+        IconButton(
+          icon: const Icon(Icons.help_outline, color: kDarkNavy),
+          onPressed: () {
+            Get.snackbar(
+              'Help',
+              'Complete all steps, then submit to create a draft listing.',
+              snackPosition: SnackPosition.BOTTOM,
+            );
+          },
+        ),
       ],
     );
   }
@@ -604,7 +773,8 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
                 const SizedBox(height: 8),
                 _dropdownField(
                   value: _viewModel.model.city,
-                  items: const ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot'],
+                  items: const ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Indore'],
+                  hint: 'Select city',
                   onChanged: (val) => _viewModel.updateField(city: val),
                 ),
                 const SizedBox(height: 16),
@@ -677,7 +847,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
           const SizedBox(height: 20),
           _primaryButton('Continue to Photos', _nextStep),
           const SizedBox(height: 12),
-          _secondaryLinkRow(left: 'Save and Exit', onLeft: () {}),
+          _secondaryLinkRow(left: 'Save and Exit', onLeft: () => Get.back()),
           const SizedBox(height: 8),
           _footerSecureText(),
         ],
@@ -686,61 +856,118 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
   }
 
   Widget _interactiveMapPreview() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: SizedBox(
-        height: 160,
-        child: Stack(
+    final pin = _viewModel.model.pinLocation;
+    final place = [
+      if (_viewModel.model.locality.trim().isNotEmpty) _viewModel.model.locality,
+      if (_viewModel.model.city.trim().isNotEmpty) _viewModel.model.city,
+    ].join(', ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            FlutterMap(
-              options: MapOptions(
-                initialCenter: _viewModel.model.pinLocation,
-                initialZoom: 15.0,
-                onTap: (tapPosition, point) {
-                  _viewModel.updateField(pinLocation: point);
-                },
+            const Expanded(
+              child: Text(
+                'Pin location on map',
+                style: TextStyle(
+                  color: kDarkNavy,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.diginiwas.app',
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _viewModel.model.pinLocation,
-                      width: 40,
-                      height: 40,
-                      child: const Icon(Icons.location_on, color: kPrimaryTeal, size: 38),
-                    ),
-                  ],
-                ),
-              ],
             ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                color: Colors.white.withOpacity(0.95),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 12, color: kPrimaryTeal),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text('Pinned to: ${_viewModel.model.locality}, ${_viewModel.model.city}',
-                          style: const TextStyle(fontSize: 10, color: kGreyText)),
-                    ),
-                    const Text('Tap map to change pin >',
-                        style: TextStyle(fontSize: 10, color: kPrimaryTeal, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
+            TextButton.icon(
+              onPressed: _locating ? null : _useCurrentLocation,
+              icon: _locating
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.my_location, size: 16),
+              label: Text(_locating ? 'Locating…' : 'Use my location'),
+              style: TextButton.styleFrom(foregroundColor: kPrimaryTeal),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: SizedBox(
+            height: 220,
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: pin,
+                    initialZoom: 15.0,
+                    onTap: (tapPosition, point) {
+                      _viewModel.updateField(pinLocation: point);
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.diginiwas.app',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: pin,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(
+                            Icons.location_on,
+                            color: kPrimaryTeal,
+                            size: 38,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                    color: Colors.white.withValues(alpha: 0.95),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on,
+                            size: 12, color: kPrimaryTeal),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            place.isEmpty
+                                ? 'Pinned: ${pin.latitude.toStringAsFixed(5)}, ${pin.longitude.toStringAsFixed(5)}'
+                                : 'Pinned to: $place',
+                            style:
+                                const TextStyle(fontSize: 10, color: kGreyText),
+                          ),
+                        ),
+                        const Text(
+                          'Tap map to move pin',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: kPrimaryTeal,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1199,7 +1426,10 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
             ],
           ),
           const SizedBox(height: 16),
-          _primaryButton('Submit Listing for Review →', _nextStep),
+          _primaryButton(
+            _submitting ? 'Submitting…' : 'Submit Listing for Review →',
+            _submitting ? () {} : _submitListing,
+          ),
           const SizedBox(height: 12),
           _secondaryLinkCenter('Save and Exit'),
           const SizedBox(height: 8),
@@ -1301,7 +1531,7 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
             width: double.infinity,
             height: 48,
             child: OutlinedButton(
-              onPressed: () {},
+              onPressed: () => Get.offAllNamed(AppRoutes.partnerDashboard),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: kBorderGrey),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1495,7 +1725,13 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
                 child: SizedBox(
                   height: 42,
                   child: ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      Get.snackbar(
+                        'Chat',
+                        'Use unlocked lead contact details to message buyers.',
+                        snackPosition: SnackPosition.BOTTOM,
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimaryTeal,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1510,7 +1746,13 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
                 child: SizedBox(
                   height: 42,
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      Get.snackbar(
+                        'Call',
+                        'Use unlocked lead contact details to call buyers.',
+                        snackPosition: SnackPosition.BOTTOM,
+                      );
+                    },
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: kBorderGrey),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1574,17 +1816,29 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
     );
   }
 
-  Widget _dropdownField({required String value, required List<String> items, required ValueChanged<String?> onChanged}) {
+  Widget _dropdownField({
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    String hint = 'Select',
+  }) {
+    final selected = items.contains(value) ? value : null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderGrey)),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kBorderGrey),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: value,
+          value: selected,
+          hint: Text(hint, style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down, color: kGreyText),
           style: const TextStyle(color: kDarkNavy, fontSize: 13),
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          items: items
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
           onChanged: onChanged,
         ),
       ),
@@ -1706,7 +1960,18 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
   Widget _secondaryLinkCenter(String text) {
     return Center(
       child: TextButton(
-        onPressed: () {},
+        onPressed: () {
+          if (text.toLowerCase().contains('cancel') ||
+              text.toLowerCase().contains('back') ||
+              text.toLowerCase().contains('exit')) {
+            Get.back();
+          } else if (text.toLowerCase().contains('home') ||
+              text.toLowerCase().contains('dashboard')) {
+            Get.offAllNamed(AppRoutes.partnerDashboard);
+          } else {
+            Get.back();
+          }
+        },
         child: Text(text, style: const TextStyle(color: kPrimaryTeal, fontWeight: FontWeight.bold)),
       ),
     );

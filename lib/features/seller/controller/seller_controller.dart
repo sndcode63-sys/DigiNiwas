@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../../core/models/seller_home_feed_model.dart';
@@ -203,16 +205,16 @@ class SellerController extends GetxController {
   }
 
   List<SellerUpdateItem> _buildRecentUpdates(
-    List<Map<String, dynamic>> leads,
-    List<Map<String, dynamic>> visits,
-    List<SellerPropertyBrief> properties,
-  ) {
+      List<Map<String, dynamic>> leads,
+      List<Map<String, dynamic>> visits,
+      List<SellerPropertyBrief> properties,
+      ) {
     final items = <SellerUpdateItem>[];
 
     for (final v in visits) {
       final when = DateTime.tryParse(
-            (v['requestedVisitAt'] ?? v['createdAt'] ?? '').toString(),
-          ) ??
+        (v['requestedVisitAt'] ?? v['createdAt'] ?? '').toString(),
+      ) ??
           DateTime.now();
       final status = (v['status'] ?? '').toString().toLowerCase();
       final who = (v['requestedBy'] is Map ? v['requestedBy']['name'] : null) ??
@@ -329,6 +331,68 @@ class SellerController extends GetxController {
       return false;
     } finally {
       isSubmittingKYC.value = false;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Add Property flow — submits the new listing to POST /api/newproperties.
+  // ---------------------------------------------------------------------
+
+  final RxBool isSubmittingProperty = false.obs;
+  final RxString submitPropertyError = ''.obs;
+  final Rxn<Map<String, dynamic>> submittedProperty = Rxn<Map<String, dynamic>>();
+
+  /// Submits a new property listing on behalf of the logged-in seller.
+  /// Returns the created property map on success, null on failure (with
+  /// [submitPropertyError] set and a snackbar already shown).
+  Future<Map<String, dynamic>?> submitNewProperty({
+    required Map<String, dynamic> fields,
+    List<File> images = const [],
+    File? floorPlan,
+    File? reraCertificate,
+    File? video,
+  }) async {
+    try {
+      isSubmittingProperty.value = true;
+      submitPropertyError.value = '';
+
+      // Attach the logged-in seller's identity as the listing creator, per
+      // the API guide's creatorId/creatorRole/creatorName/creatorEmail/
+      // creatorPhone fields — falls back gracefully if any piece is
+      // unavailable rather than blocking submission.
+      final id = await SecureStorageService.instance.getSellerMongoId();
+      var profile = sellerProfile.value;
+      if (profile == null && id != null && id.isNotEmpty) {
+        try {
+          profile = await _repository.getSellerById(id);
+          sellerProfile.value = profile;
+        } catch (e) {
+          debugPrint('⚠️ submitNewProperty: could not load seller profile: $e');
+        }
+      }
+      final creatorFields = <String, dynamic>{
+        if (id != null && id.isNotEmpty) 'creatorId': id,
+        'creatorRole': 'Seller',
+        if (profile?.name.isNotEmpty ?? false) 'creatorName': profile!.name,
+        if (profile?.email.isNotEmpty ?? false) 'creatorEmail': profile!.email,
+        if (profile?.phone.isNotEmpty ?? false) 'creatorPhone': profile!.phone,
+      };
+
+      final result = await _repository.createProperty(
+        fields: {...fields, ...creatorFields},
+        images: images,
+        floorPlan: floorPlan,
+        reraCertificate: reraCertificate,
+        video: video,
+      );
+
+      submittedProperty.value = result;
+      return result;
+    } catch (e) {
+      submitPropertyError.value = e.toString();
+      return null;
+    } finally {
+      isSubmittingProperty.value = false;
     }
   }
 

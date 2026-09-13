@@ -101,7 +101,65 @@ class ApiConstants {
   // ------------------------------------------------------------
   // Nearby Agents
   // GET /api/v1/agents/nearby
-  // ------------------------------------------------------------
+  // ==================== Partner Auth ====================
+  static const String partnerLogin = '/partner-auth/login';
+  static const String partnerChangePassword = '/partner-auth/change-password';
+
+  // ==================== Partner Applications ====================
+  static const String partnerApplications = '/partner-applications';
+  static const String partnerApplicationsRegister =
+      '/partner-applications/register';
+
+  // ==================== Partners ====================
+  static const String partners = '/partners';
+  static const String partnersSummary = '/partners/summary';
+  static const String partnersProperties = '/partners/properties';
+  static const String partnersUnassignedProperties =
+      '/partners/properties/unassigned';
+  static const String partnersAvailable = '/partners/partners/available';
+  static const String partnersApprovedNotVerified =
+      '/partners/approved-not-verified';
+  static const String partnersDelete = '/partners/delete';
+
+  // ==================== Team Partners ====================
+  static const String teamPartners = '/team-partners';
+
+  // ==================== Credits ====================
+  static const String creditsDashboard = '/credits/dashboard';
+  static const String creditsByPartner = '/credits/partners';
+  static const String creditsPartnerWallet = '/credits/partner';
+  static const String creditsHistory = '/credits/history';
+  static const String creditsPurchaseComplete = '/credits/purchase/complete';
+  static const String creditSettings = '/credit-settings';
+
+  // ==================== Leads (Partner) ====================
+  static const String leadsDashboard = '/leads/dashboard';
+  static const String leads = '/leads';
+  static const String leadsByPartner = '/leads/partner';
+
+  // ==================== Visits (Partner) ====================
+  static const String visitsSummary = '/visits/summary';
+  static const String visitsByPartner = '/visits/partner';
+  static const String visits = '/visits';
+
+  // ==================== New Properties (Partner) ====================
+  static const String newProperties = '/newproperties';
+  static const String newPropertiesAll = '/newproperties/all';
+  static const String newPropertiesFilter = '/newproperties/filter';
+  static const String newPropertiesByPartner = '/newproperties/partner';
+
+  // ==================== Property Publishing ====================
+  static const String propertyPublishingSummary =
+      '/property-publishing/summary';
+  static const String propertyPublishingReady = '/property-publishing/ready';
+  static const String propertyPublishingLive = '/property-publishing/live';
+
+  // ==================== Promotions / Boost Operations ====================
+  static const String promotions = '/promotions';
+  static const String boostOperationsDashboard =
+      '/boost-operations/dashboard';
+  static const String boostOperations = '/boost-operations';
+
 
   static const String nearbyAgents =
       '/v1/agents/nearby';
@@ -143,9 +201,6 @@ class ApiConstants {
   // GET /api/newproperties/filter
   // ------------------------------------------------------------
 
-  static const String newPropertiesFilter =
-      '/newproperties/filter';
-
 
   // ------------------------------------------------------------
   // Get Property By ID
@@ -163,6 +218,16 @@ class ApiConstants {
 
   static const String createProperty =
       '/v1/properties';
+
+
+  // ------------------------------------------------------------
+  // Create New Property (Seller "Add Property" flow)
+  // POST /api/newproperties  (multipart/form-data — supports
+  // images[], floorPlan, reraCertificate, video file fields)
+  // ------------------------------------------------------------
+
+  static const String createNewProperty =
+      '/newproperties';
 
 
   // ------------------------------------------------------------

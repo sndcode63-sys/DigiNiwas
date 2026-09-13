@@ -20,6 +20,10 @@ abstract class AppRoutes {
   static const compareProperties = '/compare-properties';
   static const exploreMap = '/explore-map';
   static const mapView = '/map-view';
+  static const partnerLogin = '/partner-login';
+  static const partnerTeam = '/partner-team';
+  static const partnerChangePassword = '/partner-change-password';
+
 
   // Seller flow
   static const sellerRegistration = '/seller-registration';
@@ -29,4 +33,6 @@ abstract class AppRoutes {
 
   // Agent / partner flow
   static const agentAddProperty = '/agent-add-property';
+  static const partnerApply = '/partner-apply';
+
 }

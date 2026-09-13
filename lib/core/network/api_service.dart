@@ -54,6 +54,7 @@ class ApiService {
 
   static final ApiService instance = ApiService._internal();
   late final Dio _dio;
+  static void Function()? onUnauthorized;
 
 
   Future<Response> _withColdStartRetry(Future<Response> Function() call) async {
@@ -75,8 +76,14 @@ class ApiService {
     return _withColdStartRetry(() => _dio.get(path, queryParameters: queryParameters));
   }
 
-  Future<Response> post(String path, {dynamic data}) {
-    return _withColdStartRetry(() => _dio.post(path, data: data));
+  Future<Response> post(
+      String path, {
+        dynamic data,
+        Map<String, dynamic>? queryParameters,
+      }) {
+    return _withColdStartRetry(
+          () => _dio.post(path, data: data, queryParameters: queryParameters),
+    );
   }
 
   Future<Response> put(String path, {dynamic data}) {
@@ -90,4 +97,24 @@ class ApiService {
   Future<Response> patch(String path, {dynamic data}) {
     return _withColdStartRetry(() => _dio.patch(path, data: data));
   }
+  Future<Response> postMultipart(String path, {required FormData data}) {
+    return _withColdStartRetry(
+          () => _dio.post(
+        path,
+        data: data,
+        options: Options(contentType: 'multipart/form-data'),
+      ),
+    );
+  }
+
+  Future<Response> patchMultipart(String path, {required FormData data}) {
+    return _withColdStartRetry(
+          () => _dio.patch(
+        path,
+        data: data,
+        options: Options(contentType: 'multipart/form-data'),
+      ),
+    );
+  }
+
 }
