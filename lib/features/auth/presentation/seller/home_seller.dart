@@ -40,9 +40,9 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
     _screens = [
       _buildHomeBodyContent(), // Index 0: Home
       const AddPropertyFlowScreen(), // Index 1: Properties
-      const MyPartnerScreen(),
+      MyPartnerScreen(onNavigateTab: (index) => setState(() => _currentIndex = index)),
       const _PlaceholderScreen(title: 'Updates Screen'), // Index 3: Updates
-      const SellerProfileScreen(),
+      SellerProfileScreen(onNavigateTab: (index) => setState(() => _currentIndex = index)),
     ];
   }
 
@@ -903,23 +903,23 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
           ),
           child: updates.isEmpty
               ? Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                  child: Text(
-                    'No updates yet. Your Partner will keep you posted here.',
-                    style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
-                  ),
-                )
+            padding: EdgeInsets.symmetric(vertical: 8.h),
+            child: Text(
+              'No updates yet. Your Partner will keep you posted here.',
+              style: GoogleFonts.poppins(fontSize: 11.5.sp, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+            ),
+          )
               : Column(
-                  children: [
-                    for (int i = 0; i < updates.length; i++)
-                      _buildUpdateItem(
-                        icon: _iconForUpdateKind(updates[i].kind),
-                        title: updates[i].title,
-                        time: timeAgoLabel(updates[i].timestamp),
-                        showDivider: i != updates.length - 1,
-                      ),
-                  ],
+            children: [
+              for (int i = 0; i < updates.length; i++)
+                _buildUpdateItem(
+                  icon: _iconForUpdateKind(updates[i].kind),
+                  title: updates[i].title,
+                  time: timeAgoLabel(updates[i].timestamp),
+                  showDivider: i != updates.length - 1,
                 ),
+            ],
+          ),
         ),
       ],
     );

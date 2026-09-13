@@ -27,8 +27,6 @@ SellerPropertyStage _stageFromRaw(String? raw) {
   if (value.contains('review') || value.contains('progress')) {
     return SellerPropertyStage.partnerReview;
   }
-  // 'draft', 'submitted', 'pending', or anything unrecognized defaults to
-  // the earliest stage rather than assuming the listing is further along.
   return SellerPropertyStage.submitted;
 }
 
@@ -214,4 +212,17 @@ String timeAgoLabel(DateTime time) {
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
   return '${time.day} ${months[time.month - 1]}';
+}
+
+/// "8 Aug, 11:00 AM" style label for an upcoming/appointment date-time,
+/// used by the My Partner screen's "Next appointment" notice.
+String formatVisitDateTime(DateTime time) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+  final hour24 = time.hour;
+  final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+  final minute = time.minute.toString().padLeft(2, '0');
+  final ampm = hour24 >= 12 ? 'PM' : 'AM';
+  return '${time.day} ${months[time.month - 1]}, $hour12:$minute $ampm';
 }

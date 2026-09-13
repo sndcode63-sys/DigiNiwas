@@ -46,6 +46,11 @@ class SellerController extends GetxController {
 
   final RxList<SellerUpdateItem> recentUpdates = <SellerUpdateItem>[].obs;
 
+  // Used by the "My Partner" and "Seller Profile" screens (Site Visits stat
+  // card + the onboarding progress card's "Next appointment" notice).
+  final RxInt siteVisitsCount = 0.obs;
+  final Rxn<DateTime> nextVisitAt = Rxn<DateTime>();
+
   /// Load complete dashboard data for a given Seller ID
   Future<void> fetchSellerDashboardData(String sellerId) async {
     if (sellerId.isEmpty) return;
@@ -194,6 +199,27 @@ class SellerController extends GetxController {
         final status = (l['status'] ?? '').toString().toLowerCase();
         return status.contains('offer') || status.contains('negotiat');
       }).length;
+
+      siteVisitsCount.value = myVisits.length;
+
+      // Earliest upcoming (not completed/cancelled/rejected) visit across
+      // this seller's properties, used for the "Next appointment" notice.
+      DateTime? upcoming;
+      for (final v in myVisits) {
+        final status =
+        (v['status'] ?? v['approvalStatus'] ?? '').toString().toLowerCase();
+        if (status.contains('cancel') ||
+            status.contains('complet') ||
+            status.contains('reject')) {
+          continue;
+        }
+        final when = DateTime.tryParse(
+          (v['approvedVisitAt'] ?? v['requestedVisitAt'] ?? '').toString(),
+        );
+        if (when == null) continue;
+        if (upcoming == null || when.isBefore(upcoming)) upcoming = when;
+      }
+      nextVisitAt.value = upcoming;
 
       recentUpdates.assignAll(_buildRecentUpdates(myLeads, myVisits, parsedProperties));
     } catch (e) {
