@@ -40,6 +40,13 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
       return;
     }
 
+    // Agent / Partner flow — partners log in with their own
+    // credentials instead of the generic OTP registration screen.
+    if (selected == 'partner') {
+      Get.toNamed(AppRoutes.partnerLogin);
+      return;
+    }
+
     Get.toNamed(AppRoutes.registration, arguments: {'role': _apiRole[selected]!});
   }
 

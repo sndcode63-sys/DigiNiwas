@@ -7,9 +7,7 @@ import '../../../../core/models/property_filter_model.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/widgets/app_image.dart';
 
-/// Converts a typed [PfPropertyData] (from the filter API) into the loose
-/// `Map` shape that `_PropertyCard` and the compare screen already expect,
-/// keeping display fields aligned with the search API's raw map results.
+
 Map<String, dynamic> _pfPropertyToMap(PfPropertyData p) {
   return {
     '_id': p.sId,

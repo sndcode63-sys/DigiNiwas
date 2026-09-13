@@ -23,7 +23,7 @@ import 'niwas_ai_section.dart';
 import 'view_all_screen.dart';
 
 
-Color _amenityColor(String? markerType) {
+Color amenityColor(String? markerType) {
   switch (markerType) {
     case 'EDUCATION':
       return const Color(0xFF3B82F6);
@@ -36,7 +36,7 @@ Color _amenityColor(String? markerType) {
   }
 }
 
-IconData _amenityIcon(String? markerType) {
+IconData amenityIcon(String? markerType) {
   switch (markerType) {
     case 'EDUCATION':
       return Icons.school_outlined;
@@ -982,7 +982,7 @@ class HomeScreen extends StatelessWidget {
                     color: isProperty ? const Color(0xFF007A5E) : Colors.white,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isProperty ? Colors.white : _amenityColor(m.markerType),
+                      color: isProperty ? Colors.white : amenityColor(m.markerType),
                       width: 2.w,
                     ),
                     boxShadow: [
@@ -994,8 +994,8 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                   child: Icon(
-                    isProperty ? Icons.home_rounded : _amenityIcon(m.markerType),
-                    color: isProperty ? Colors.white : _amenityColor(m.markerType),
+                    isProperty ? Icons.home_rounded : amenityIcon(m.markerType),
+                    color: isProperty ? Colors.white : amenityColor(m.markerType),
                     size: isProperty ? 18.sp : 14.sp,
                   ),
                 ),
@@ -1940,19 +1940,13 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// =====================================================================
-// FULL-SCREEN EXPLORE MAP VIEW SCREEN — now fully dynamic, driven by
-// BuyerHomeController.exploreNearby (GET /api/v1/properties/explore-nearby)
-// instead of hardcoded demo pins.
-// =====================================================================
+
 class ExploreMapViewScreen extends StatelessWidget {
   const ExploreMapViewScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Same controller instance HomeScreen already put() — no new API call
-    // needed here, we just read what's already loaded (or re-fetch on
-    // radius change below).
+
     final BuyerHomeController controller = Get.find<BuyerHomeController>();
 
     return Scaffold(
@@ -1994,7 +1988,7 @@ class ExploreMapViewScreen extends StatelessWidget {
                       color: isProperty ? const Color(0xFF007A5E) : Colors.white,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isProperty ? Colors.white : _amenityColor(m.markerType),
+                        color: isProperty ? Colors.white : amenityColor(m.markerType),
                         width: 2.w,
                       ),
                       boxShadow: [
@@ -2006,8 +2000,8 @@ class ExploreMapViewScreen extends StatelessWidget {
                       ],
                     ),
                     child: Icon(
-                      isProperty ? Icons.home_rounded : _amenityIcon(m.markerType),
-                      color: isProperty ? Colors.white : _amenityColor(m.markerType),
+                      isProperty ? Icons.home_rounded : amenityIcon(m.markerType),
+                      color: isProperty ? Colors.white : amenityColor(m.markerType),
                       size: isProperty ? 20.sp : 15.sp,
                     ),
                   ),
@@ -2276,8 +2270,8 @@ class ExploreMapViewScreen extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    isProperty ? Icons.home_rounded : _amenityIcon(marker.markerType),
-                    color: isProperty ? const Color(0xFF007A5E) : _amenityColor(marker.markerType),
+                    isProperty ? Icons.home_rounded : amenityIcon(marker.markerType),
+                    color: isProperty ? const Color(0xFF007A5E) : amenityColor(marker.markerType),
                     size: 22.sp,
                   ),
                   SizedBox(width: 8.w),

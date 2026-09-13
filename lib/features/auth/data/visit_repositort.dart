@@ -39,10 +39,13 @@ class VisitRepository {
     return RequestVisitModel.fromJson(_asMap(response.data));
   }
 
-  /// GET {ApiConstants.baseUrl}{ApiConstants.getVisitById}/:id
+  /// GET {ApiConstants.baseUrl}{ApiConstants.getVisitById(visitId)}
   /// i.e. https://backend-diginiwas.onrender.com/api/visits/<visitId>
   Future<VisitStatusModel> getVisitById(String visitId) async {
-    final Response response = await _api.get('${ApiConstants.getVisitById}/$visitId');
+    // 🔴 PEHLE YAHAN GALTI THI: '${ApiConstants.getVisitById}/$visitId'
+    // ✅ AB ISE AISE FUNCTION CALL BANANA HAI:
+    final Response response = await _api.get(ApiConstants.getVisitById(visitId));
+
     return VisitStatusModel.fromJson(_asMap(response.data));
   }
 

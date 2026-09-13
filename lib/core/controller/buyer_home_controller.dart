@@ -296,13 +296,14 @@ class BuyerHomeController extends GetxController {
   Future<void> fetchSavedProperties(String buyerId) async {
     savedPropertiesLoading.value = true;
     try {
-      final response = await _apiService.get('${ApiConstants.getBuyerSavedProperties}/$buyerId');
+      final endpoint = ApiConstants.getBuyerSavedProperties(buyerId);
+      final response = await _apiService.get(endpoint);
+
       final data = response.data;
       if (data is Map && data['success'] == true) {
         final list = data['data'] ?? [];
         savedPropertiesList.value = list;
 
-        // Saved property IDs ko set me extract kar lo UI check ke liye
         savedPropertyIds.clear();
         for (var item in list) {
           final propId = item['property']?['_id']?.toString() ?? item['propertyId']?.toString() ?? item['_id']?.toString();
@@ -318,7 +319,6 @@ class BuyerHomeController extends GetxController {
       savedPropertiesLoading.value = false;
     }
   }
-
   /// Toggle save / remove property with instant optimistic UI update
   Future<void> toggleSaveProperty(String buyerId, String propertyId) async {
     final isAlreadySaved = savedPropertyIds.contains(propertyId);

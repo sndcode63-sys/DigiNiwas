@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 
 import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/auth/data/property_partner_repo.dart';
+import '../controller/partner_home_controller.dart';
 import '../network/api_service.dart';
 import '../services/location_service.dart';
 import '../storage/secure_storage_service.dart';
@@ -31,11 +33,22 @@ class InitialBinding extends Bindings {
       AuthRepository(Get.find<ApiService>(), Get.find<SecureStorageService>()),
       permanent: true,
     );
+    Get.put<PartnerRepository>(
+      PartnerRepository(
+        Get.find<ApiService>(),
+        Get.find<SecureStorageService>(),
+      ),
+      permanent: true,
+    );
 
     // Controllers
     Get.put<AuthController>(
       AuthController(Get.find<AuthRepository>(), Get.find<LocationService>()),
       permanent: true,
+    );
+    Get.lazyPut<PartnerHomeController>(
+          () => PartnerHomeController(repository: Get.find<PartnerRepository>()),
+      fenix: true,
     );
   }
 }

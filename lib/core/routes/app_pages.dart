@@ -1,7 +1,10 @@
 import 'package:get/get.dart';
 
 import '../../features/auth/presentation/agent/home_screen.dart';
+import '../../features/auth/presentation/agent/partner_application_screen.dart';
+import '../../features/auth/presentation/agent/partner_change_password_screen.dart';
 import '../../features/auth/presentation/agent/partner_login_screen.dart';
+import '../../features/auth/presentation/agent/partner_team_screen.dart';
 import '../../features/auth/presentation/agent/property_details.dart';
 import '../../features/auth/presentation/buyer_section/buyer_home.dart' as buyer;
 import '../../features/auth/presentation/buyer_section/choose_roll.dart';
@@ -118,6 +121,18 @@ class AppPages {
     GetPage(
       name: AppRoutes.agentAddProperty,
       page: () => const AgentAddPropertyFlowScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.partnerApply,
+      page: () => const PartnerApplicationScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.partnerChangePassword,
+      page: () => const PartnerChangePasswordScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.partnerTeam,
+      page: () => const PartnerTeamScreen(),
     ),
   ];
 }
