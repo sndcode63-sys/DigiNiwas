@@ -678,6 +678,7 @@ class SavedPropertiesScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
+
                   'Compare',
                   style: GoogleFonts.poppins(
                     fontSize: 10.5.sp,
