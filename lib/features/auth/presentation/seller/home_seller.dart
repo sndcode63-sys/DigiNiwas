@@ -1,3 +1,4 @@
+import 'package:diginiwas/features/auth/presentation/seller/seller_insights.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -12,6 +13,7 @@ import '../../../../core/widgets/app_toast.dart';
 import '../../../seller/controller/seller_controller.dart';
 import 'add_property_flow_screen.dart';
 import 'my_partner.dart';
+import 'my_property_seller.dart';
 import 'seller_profile_screen.dart';
 
 class SellerHomeScreen extends StatefulWidget {
@@ -39,9 +41,9 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
 
     _screens = [
       _buildHomeBodyContent(), // Index 0: Home
-      const AddPropertyFlowScreen(), // Index 1: Properties
+      const MyPropertiesScreen(), // Index 1: Properties
       MyPartnerScreen(onNavigateTab: (index) => setState(() => _currentIndex = index)),
-      const _PlaceholderScreen(title: 'Updates Screen'), // Index 3: Updates
+      const SellerInsightsScreen(), // Index 3: Updates
       SellerProfileScreen(onNavigateTab: (index) => setState(() => _currentIndex = index)),
     ];
   }
@@ -1042,7 +1044,7 @@ class _SellerHomeScreenState extends State<SellerHomeScreen> {
           _navItem(icon: Icons.home_rounded, label: 'Home', index: 0),
           _navItem(icon: Icons.apartment_rounded, label: 'Properties', index: 1),
           _navItem(icon: Icons.person_outline_rounded, label: 'My Partner', index: 2),
-          _navItem(icon: Icons.chat_bubble_outline_rounded, label: 'Updates', index: 3),
+          _navItem(icon: Icons.insights, label: 'Insights', index: 3),
           _navItem(icon: Icons.person_outline_rounded, label: 'Profile', index: 4),
         ],
       ),

@@ -13,10 +13,11 @@ import '../../features/auth/presentation/seller/add_property_flow_screen.dart';
 import '../../features/auth/presentation/seller/home_seller.dart';
 import '../../features/auth/presentation/seller/my_property_seller.dart';
 import '../../features/auth/presentation/seller/seller_change_password_screen.dart';
+import '../../features/auth/presentation/seller/seller_insights.dart';
 import '../../features/auth/presentation/seller/seller_registration_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import 'app_routes.dart';
-                             // replace stack
+// replace stack
 class AppPages {
   AppPages._();
 
@@ -73,7 +74,7 @@ class AppPages {
       name: AppRoutes.compareProperties,
       page: () => ComparePropertiesScreen(
         comparedProperties:
-            _arg<List<Map<String, dynamic>>>('comparedProperties', const []),
+        _arg<List<Map<String, dynamic>>>('comparedProperties', const []),
       ),
     ),
     GetPage(
@@ -97,6 +98,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.myProperties,
       page: () => const MyPropertiesScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.sellerInsights,
+      page: () => const SellerInsightsScreen(),
     ),
     GetPage(
       name: AppRoutes.addProperty,

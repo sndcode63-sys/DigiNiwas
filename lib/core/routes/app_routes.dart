@@ -30,6 +30,7 @@ abstract class AppRoutes {
   static const sellerChangePassword = '/seller-change-password';
   static const myProperties = '/my-properties';
   static const addProperty = '/add-property';
+  static const sellerInsights = '/seller_insights';
 
   // Agent / partner flow
   static const agentAddProperty = '/agent-add-property';

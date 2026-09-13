@@ -62,6 +62,31 @@ class SellerPropertyBrief {
   final bool partnerVerified;
   final bool? partnerOnline;
 
+  // ---------------------------------------------------------------------
+  // Listing details — used by "My Properties" cards & Seller Insights.
+  // Field names aren't documented anywhere for this endpoint either, so
+  // every value below is parsed defensively from the same key aliases
+  // used across the rest of this codebase (see property_new_listing.dart /
+  // property_filter_model.dart) and simply comes back null/0 if the
+  // backend doesn't send it — screens must render gracefully either way.
+  // ---------------------------------------------------------------------
+  final num? price;
+  final String? bedrooms;
+  final String? bathrooms;
+  final String? area; // formatted, e.g. "1,850 sq.ft"
+  final String? category;
+  final String? transactionType;
+  final String? city;
+  final String? locality;
+  final String? verificationStatus;
+
+  /// Best-effort engagement counters straight off the property document,
+  /// if the backend includes them (e.g. `views`, `viewsCount`, `saves`,
+  /// `savedCount`). Defaults to 0 — screens should treat 0 as "no data
+  /// yet", not necessarily "zero views".
+  final int views;
+  final int saves;
+
   SellerPropertyBrief({
     required this.id,
     required this.title,
@@ -77,7 +102,38 @@ class SellerPropertyBrief {
     this.partnerLocality,
     this.partnerVerified = false,
     this.partnerOnline,
+    this.price,
+    this.bedrooms,
+    this.bathrooms,
+    this.area,
+    this.category,
+    this.transactionType,
+    this.city,
+    this.locality,
+    this.verificationStatus,
+    this.views = 0,
+    this.saves = 0,
   });
+
+  /// "3 BHK" style label, or null if bedrooms weren't returned.
+  String? get bhkLabel {
+    if (bedrooms == null || bedrooms!.trim().isEmpty) return null;
+    final trimmed = bedrooms!.trim();
+    return trimmed.toUpperCase().contains('BHK') ? trimmed : '$trimmed BHK';
+  }
+
+  /// "Model Town, Ambala" style address label built from whatever
+  /// locality/city fields are present.
+  String? get addressLabel {
+    final parts = [locality, city].where((p) => p != null && p.trim().isNotEmpty).toList();
+    if (parts.isEmpty) return null;
+    return parts.join(', ');
+  }
+
+  bool get isVerifiedListing {
+    final v = (verificationStatus ?? '').toLowerCase();
+    return v.contains('verified') || v.contains('approved');
+  }
 
   /// One line shown under the progress tracker.
   String get statusNote {
@@ -116,6 +172,12 @@ class SellerPropertyBrief {
     }
     imageUrl ??= (json['image'] ?? json['coverImage'] ?? json['thumbnail'])?.toString();
 
+    final area = json['superBuiltupArea'] ??
+        json['carpetArea'] ??
+        json['builtUpArea'] ??
+        json['area'] ??
+        json['sqft'];
+
     return SellerPropertyBrief(
       id: (json['_id'] ?? json['id'] ?? json['propertyId'] ?? '').toString(),
       title: (json['title'] ?? json['projectName'] ?? json['name'] ?? 'Untitled Property')
@@ -134,7 +196,31 @@ class SellerPropertyBrief {
       partnerLocality: _partnerLocality(partnerMap),
       partnerVerified: partnerMap?['isVerified'] == true,
       partnerOnline: partnerMap?['isOnline'] is bool ? partnerMap!['isOnline'] as bool : null,
+      price: _toNum(json['price'] ?? json['expectedPrice'] ?? json['amount']),
+      bedrooms: (json['bedrooms'] ?? json['bhk'])?.toString(),
+      bathrooms: json['bathrooms']?.toString(),
+      area: area != null ? '$area sq.ft' : null,
+      category: (json['category'] ?? json['propertyType'])?.toString(),
+      transactionType: json['transactionType']?.toString(),
+      city: json['city']?.toString(),
+      locality: (json['locality'] ?? json['address'])?.toString(),
+      verificationStatus: (json['propertyVerificationStatus'] ?? json['verificationStatus'])?.toString(),
+      views: _toInt(json['views'] ?? json['viewsCount'] ?? json['viewCount'] ?? json['totalViews']),
+      saves: _toInt(json['saves'] ?? json['savesCount'] ?? json['savedCount'] ?? json['wishlistCount']),
     );
+  }
+
+  static num? _toNum(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v;
+    return num.tryParse(v.toString());
+  }
+
+  static int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
   }
 
   static Map<String, dynamic>? _extractPartnerMap(Map<String, dynamic> json) {

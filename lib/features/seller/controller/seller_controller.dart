@@ -51,6 +51,14 @@ class SellerController extends GetxController {
   final RxInt siteVisitsCount = 0.obs;
   final Rxn<DateTime> nextVisitAt = Rxn<DateTime>();
 
+  // Raw leads/visits scoped to this seller's own properties (already
+  // filtered down from the assigned partner's full lists inside
+  // loadSellerHome). Exposed so screens like Seller Insights can compute
+  // their own aggregates (weekly buckets, per-property breakdowns, trend
+  // deltas) straight from live data without re-fetching.
+  final RxList<Map<String, dynamic>> sellerLeads = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> sellerVisits = <Map<String, dynamic>>[].obs;
+
   /// Load complete dashboard data for a given Seller ID
   Future<void> fetchSellerDashboardData(String sellerId) async {
     if (sellerId.isEmpty) return;
@@ -201,6 +209,8 @@ class SellerController extends GetxController {
       }).length;
 
       siteVisitsCount.value = myVisits.length;
+      sellerLeads.assignAll(myLeads);
+      sellerVisits.assignAll(myVisits);
 
       // Earliest upcoming (not completed/cancelled/rejected) visit across
       // this seller's properties, used for the "Next appointment" notice.
