@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../../features/auth/presentation/agent/home_screen.dart';
+import '../../features/auth/presentation/agent/partner_login_screen.dart';
 import '../../features/auth/presentation/agent/property_details.dart';
 import '../../features/auth/presentation/buyer_section/buyer_home.dart' as buyer;
 import '../../features/auth/presentation/buyer_section/choose_roll.dart';
@@ -106,6 +107,11 @@ class AppPages {
     GetPage(
       name: AppRoutes.addProperty,
       page: () => const AddPropertyFlowScreen(),
+    ),
+
+    GetPage(
+      name: AppRoutes.partnerLogin,
+      page: () => const PartnerLoginScreen(), // Make sure ye null na ho!
     ),
 
     // Agent / partner flow

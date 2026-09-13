@@ -491,9 +491,9 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
           }
         },
       ),
-      title: const Row(
+      title: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
+        children: const [
           Icon(Icons.home_rounded, color: kPrimaryTeal, size: 20),
           SizedBox(width: 6),
           Text('DigiNiwas', style: TextStyle(color: kDarkNavy, fontWeight: FontWeight.w700, fontSize: 17)),
@@ -523,9 +523,9 @@ class _AgentAddPropertyFlowScreenState extends State<AgentAddPropertyFlowScreen>
         icon: const Icon(Icons.arrow_back, color: kDarkNavy),
         onPressed: () => Get.back(),
       ),
-      title: const Row(
+      title: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
+        children: const [
           Icon(Icons.home_rounded, color: kPrimaryTeal, size: 20),
           SizedBox(width: 6),
           Text('DigiNiwas', style: TextStyle(color: kDarkNavy, fontWeight: FontWeight.w700, fontSize: 17)),

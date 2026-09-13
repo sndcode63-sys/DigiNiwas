@@ -246,8 +246,6 @@ class _PartnerApplicationScreenState extends State<PartnerApplicationScreen> {
     }
   }
 
-
-
   /// Uses mongoId / applicationId from register API and opens OTP screen
   /// immediately (do not wait on SMTP resend).
   Future<void> _openVerifyFromRegisterResponse(
