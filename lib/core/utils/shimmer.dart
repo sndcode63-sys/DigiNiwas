@@ -165,7 +165,7 @@ class ShimmerGroupDark extends StatelessWidget {
     return ShimmerWidget(
       duration: duration,
       baseColor: const Color(0xFF0E3A5C),
-      highlightColor: AppColors.turquoise.withOpacity(0.55),
+      highlightColor: AppColors.turquoise.withValues(alpha: 0.55),
       child: child,
     );
   }
@@ -310,7 +310,7 @@ class HomeShimmer extends StatelessWidget {
             childAspectRatio: 2.3,
           ),
           itemBuilder: (context, index) {
-            return ShimmerBox(borderRadius: 14, height: double.infinity);
+            return const ShimmerBox(borderRadius: 14, height: double.infinity);
           },
         ),
       ),
@@ -320,7 +320,7 @@ class HomeShimmer extends StatelessWidget {
   // ---- Recommended property cards -------------------------------------------
   Widget _recommendedCardsShimmer() {
     return SizedBox(
-      height: 250.h,
+      height: 270.h,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 20.w),

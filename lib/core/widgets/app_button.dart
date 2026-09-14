@@ -104,14 +104,14 @@ class AppButton extends StatelessWidget {
         backgroundColor: bg,
         disabledBackgroundColor: disabledBg,
         foregroundColor: fg,
-        disabledForegroundColor: fg.withOpacity(0.6),
+        disabledForegroundColor: fg.withValues(alpha: 0.6),
         elevation: 0,
         shadowColor: Colors.transparent,
         padding: EdgeInsets.symmetric(horizontal: 20.w),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
           side: variant == AppButtonVariant.outline
-              ? BorderSide(color: AppColors.primary, width: 1.4)
+              ? const BorderSide(color: AppColors.primary, width: 1.4)
               : BorderSide.none,
         ),
       ),

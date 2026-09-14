@@ -367,6 +367,16 @@ class ApiConstants {
 
 
   // ============================================================
+  // NOTIFICATIONS ENDPOINTS
+  // ============================================================
+
+  static const String notifications = '/notifications';
+  static String userNotifications(String userId) => '/notifications/user/$userId';
+  static String markNotificationRead(String id) => '/notifications/$id/read';
+  static const String markAllNotificationsRead = '/notifications/read-all';
+
+
+  // ============================================================
   // LEAD / ENQUIRY ENDPOINTS
   // ============================================================
 

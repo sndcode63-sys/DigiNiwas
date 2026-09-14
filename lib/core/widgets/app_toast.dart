@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../theme/app_colors.dart';
-
 enum AppToastType { success, error }
 
 /// App-themed toast — designed with a clean rounded card layout matching

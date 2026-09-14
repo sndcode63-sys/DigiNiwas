@@ -34,7 +34,9 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   image_picker: ^1.1.2
   http_parser: ^4.0.2
-#  file_picker: ^8.0.0 # ya latest version
+  file_picker: ^8.0.0 # ya latest version
+  mime: ^2.0.0
+  pinput: ^6.0.2
 
   # Responsive sizing
   flutter_screenutil: ^5.9.3
@@ -51,6 +53,8 @@ dependencies:
   logger: ^2.4.0
   google_fonts: ^6.2.1
 
+  intl: any
+  video_player: ^2.14.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,24 +1,26 @@
 import 'package:get/get.dart';
 
-import '../../features/auth/presentation/agent/home_screen.dart';
-import '../../features/auth/presentation/agent/partner_application_screen.dart';
-import '../../features/auth/presentation/agent/partner_change_password_screen.dart';
-import '../../features/auth/presentation/agent/partner_login_screen.dart';
-import '../../features/auth/presentation/agent/partner_team_screen.dart';
-import '../../features/auth/presentation/agent/property_details.dart';
-import '../../features/auth/presentation/buyer_section/buyer_home.dart' as buyer;
-import '../../features/auth/presentation/buyer_section/choose_roll.dart';
-import '../../features/auth/presentation/buyer_section/compare_properties_detials_screen.dart';
-import '../../features/auth/presentation/buyer_section/map_view.dart';
-import '../../features/auth/presentation/buyer_section/property_details_screen.dart';
+import '../../features/partner/presentation/partner_home_screen.dart';
+import '../../features/partner/presentation/partner_application_screen.dart';
+import '../../features/partner/presentation/partner_change_password_screen.dart';
+import '../../features/partner/presentation/partner_login_screen.dart';
+import '../../features/partner/presentation/partner_team_screen.dart';
+import '../../features/partner/presentation/property_details.dart';
+import '../../features/buyer/presentation/buyer_home_screen.dart' as buyer;
+import '../../features/auth/presentation/choose_role_screen.dart';
+import '../../features/buyer/presentation/compare_properties_screen.dart';
+import '../../features/buyer/presentation/map_view_screen.dart';
+import '../../features/buyer/presentation/property_details_screen.dart';
 import '../../features/auth/presentation/otp.dart';
 import '../../features/auth/presentation/registration_screen.dart';
-import '../../features/auth/presentation/seller/add_property_flow_screen.dart';
-import '../../features/auth/presentation/seller/home_seller.dart';
-import '../../features/auth/presentation/seller/my_property_seller.dart';
-import '../../features/auth/presentation/seller/seller_change_password_screen.dart';
-import '../../features/auth/presentation/seller/seller_insights.dart';
-import '../../features/auth/presentation/seller/seller_registration_screen.dart';
+import '../../features/auth/presentation/privacy_policy_screen.dart';
+import '../../features/auth/presentation/terms_of_service_screen.dart';
+import '../../features/seller/presentation/add_property_flow_screen.dart';
+import '../../features/seller/presentation/seller_home_screen.dart';
+import '../../features/seller/presentation/my_property_seller.dart';
+import '../../features/seller/presentation/seller_change_password_screen.dart';
+import '../../features/seller/presentation/seller_insights.dart';
+import '../../features/seller/presentation/seller_registration_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import 'app_routes.dart';
 // replace stack
@@ -47,6 +49,14 @@ class AppPages {
         role: _arg<String>('role', 'Buyer'),
         mode: _arg<OtpFlowMode>('mode', OtpFlowMode.register),
       ),
+    ),
+    GetPage(
+      name: AppRoutes.privacyPolicy,
+      page: () => const PrivacyPolicyScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.termsOfService,
+      page: () => const TermsOfServiceScreen(),
     ),
 
     // Dashboards

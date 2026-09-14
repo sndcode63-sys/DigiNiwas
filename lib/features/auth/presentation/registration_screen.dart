@@ -118,7 +118,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.textSecondary.withOpacity(0.15),
+                      color: AppColors.textSecondary.withValues(alpha: 0.15),
                       blurRadius: 25,
                       offset: const Offset(0, -5),
                     ),
@@ -160,60 +160,69 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                     SizedBox(height: 24.h),
 
+                    // Phone Field
+                    // NOTE: was `height: double.infinity` — inside this Column
+                    // (unbounded main-axis height) that forces an infinite
+                    // layout constraint and crashes the renderer. Fixed to a
+                    // concrete height, same as the main registration form.
                     _buildInputPill(
-                      child: Row(
-                        children: [
-                          Icon(Icons.phone_outlined, size: 18.sp, color: AppColors.textSecondary),
-                          SizedBox(width: 8.w),
-                          Text(
-                            '+91',
-                            style: TextStyle(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: TextField(
+                          controller: sheetPhoneController,
+                          keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          onChanged: (value) {
+                            final valid = value.trim().length == 10;
+                            if (valid != isSheetValid) {
+                              setModalState(() => isSheetValid = valid);
+                            }
+                          },
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
                           ),
-                          Icon(Icons.keyboard_arrow_down_rounded, size: 18.sp, color: AppColors.textSecondary),
-                          SizedBox(width: 6.w),
-                          Container(width: 1.2, height: 16.h, color: AppColors.border),
-                          SizedBox(width: 12.w),
-                          Expanded(
-                            child: TextField(
-                              controller: sheetPhoneController,
-                              keyboardType: TextInputType.phone,
-                              maxLength: 10,
-                              autofocus: true,
-                              onChanged: (value) {
-                                setModalState(() {
-                                  isSheetValid = value.trim().length >= 10;
-                                });
-
-                                if (value.trim().length == 10) {
-                                  FocusScope.of(context).unfocus();
-                                }
-                              },
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                              decoration: InputDecoration(
-                                counterText: '',
-                                hintText: 'Mobile Number',
-                                hintStyle: TextStyle(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPlaceholder,
-                                ),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
+                          decoration: InputDecoration(
+                            counterText: '',
+                            hintText: 'Mobile Number',
+                            hintStyle: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPlaceholder,
                             ),
-                          ),                        ],
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14.h),
+                            prefixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 12),
+                                  child: Icon(Icons.phone_outlined, size: 18.sp, color: AppColors.textSecondary),
+                                ),
+                                SizedBox(width: 8.w),
+                                Text(
+                                  '+91',
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                Icon(Icons.keyboard_arrow_down_rounded, size: 18.sp, color: AppColors.textSecondary),
+                                SizedBox(width: 10.w),
+                                Container(width: 1.2, height: 16.h, color: AppColors.border),
+                                SizedBox(width: 12.w),
+                              ],
+                            ),
+                            prefixIconConstraints: BoxConstraints(minWidth: 0, minHeight: 0),
+                          ),
+                        ),
                       ),
                     ),
-                    SizedBox(height: 20.h),
+                    SizedBox(height: 14.h),
 
                     // Continue CTA Button inside Bottom Sheet
                     AppButton(
@@ -222,30 +231,30 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       isLoading: isSheetSubmitting,
                       onPressed: isSheetValid
                           ? () async {
-                              final phone = sheetPhoneController.text.trim();
-                              setModalState(() => isSheetSubmitting = true);
-                              final success = await _authController.requestLoginOtp(
-                                phone: phone,
-                                role: widget.role,
-                              );
-                              if (!context.mounted) return;
-                              setModalState(() => isSheetSubmitting = false);
+                        final phone = sheetPhoneController.text.trim();
+                        setModalState(() => isSheetSubmitting = true);
+                        final success = await _authController.requestLoginOtp(
+                          phone: phone,
+                          role: widget.role,
+                        );
+                        if (!context.mounted) return;
+                        setModalState(() => isSheetSubmitting = false);
 
-                              if (success) {
-                                Get.back();
-                                AppToast.success(this.context, 'OTP sent to $phone');
-                                Get.toNamed(
-                                  AppRoutes.otp,
-                                  arguments: {
-                                    'phoneNumber': phone,
-                                    'mode': OtpFlowMode.login,
-                                    'role': widget.role,
-                                  },
-                                );
-                              } else {
-                                AppToast.error(this.context, _authController.state.value.errorMessage ?? 'Could not send OTP. Please try again.');
-                              }
-                            }
+                        if (success) {
+                          Get.back();
+                          AppToast.success(this.context, 'OTP sent to $phone');
+                          Get.toNamed(
+                            AppRoutes.otp,
+                            arguments: {
+                              'phoneNumber': phone,
+                              'mode': OtpFlowMode.login,
+                              'role': widget.role,
+                            },
+                          );
+                        } else {
+                          AppToast.error(this.context, _authController.state.value.errorMessage ?? 'Could not send OTP. Please try again.');
+                        }
+                      }
                           : null,
                     ),
                     SizedBox(height: 16.h),
@@ -267,7 +276,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                             ),
-                            recognizer: TapGestureRecognizer()..onTap = () {},
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => Get.toNamed(AppRoutes.termsOfService),
                           ),
                           const TextSpan(text: ' and '),
                           TextSpan(
@@ -276,7 +286,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                             ),
-                            recognizer: TapGestureRecognizer()..onTap = () {},
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => Get.toNamed(AppRoutes.privacyPolicy),
                           ),
                         ],
                       ),
@@ -363,123 +374,132 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     // Phone Field
                     _buildInputPill(
-                      child: Row(
-                        children: [
-                          Icon(Icons.phone_outlined, size: 18.sp, color: AppColors.textSecondary),
-                          SizedBox(width: 8.w),
-                          Text(
-                            '+91',
-                            style: TextStyle(
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          onChanged: (value) => _validateForm(),
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            counterText: '',
+                            hintText: 'Mobile Number',
+                            hintStyle: TextStyle(
                               fontSize: 14.sp,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPlaceholder,
                             ),
-                          ),
-                          Icon(Icons.keyboard_arrow_down_rounded, size: 18.sp, color: AppColors.textSecondary),
-                          SizedBox(width: 6.w),
-                          Container(width: 1.2, height: 16.h, color: AppColors.border),
-                          SizedBox(width: 12.w),
-                          Expanded(
-                            child: TextField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              maxLength: 10,
-                              onChanged: (value) => _validateForm(),
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                              decoration: InputDecoration(
-                                counterText: '',
-                                hintText: 'Mobile Number',
-                                hintStyle: TextStyle(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPlaceholder,
-                                ),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14.h),
+                            prefixIcon: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8.w),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.phone_outlined, size: 18.sp, color: AppColors.textSecondary),
+                                  SizedBox(width: 8.w),
+                                  Text(
+                                    '+91',
+                                    style: TextStyle(
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  Icon(Icons.keyboard_arrow_down_rounded, size: 18.sp, color: AppColors.textSecondary),
+                                  SizedBox(width: 6.w),
+                                  Container(width: 1.2, height: 16.h, color: AppColors.border),
+                                ],
                               ),
                             ),
+                            prefixIconConstraints: BoxConstraints(minWidth: 0, minHeight: 0),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                     SizedBox(height: 14.h),
 
                     // Name Field
                     _buildInputPill(
-                      child: Row(
-                        children: [
-                          Icon(Icons.person_outline_rounded, size: 20.sp, color: AppColors.textSecondary),
-                          SizedBox(width: 12.w),
-                          Expanded(
-                            child: TextField(
-                              controller: _nameController,
-                              onChanged: (value) => _validateForm(),
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Full Name',
-                                hintStyle: TextStyle(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPlaceholder,
-                                ),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: TextField(
+                          controller: _nameController,
+                          onChanged: (value) => _validateForm(),
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
                           ),
-                        ],
+                          decoration: InputDecoration(
+                            hintText: 'Full Name',
+                            hintStyle: TextStyle(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPlaceholder,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14.h),
+                            prefixIcon: Icon(Icons.person_outline_rounded, size: 20.sp, color: AppColors.textSecondary),
+                            prefixIconConstraints: BoxConstraints(minWidth: 44.w, minHeight: 20.h),
+                          ),
+                        ),
                       ),
                     ),
                     SizedBox(height: 14.h),
 
-                    // Email Field (Optional)
+// Email Field (Optional)
                     _buildInputPill(
-                      child: Row(
-                        children: [
-                          Icon(Icons.mail_outline_rounded, size: 19.sp, color: AppColors.textSecondary),
-                          SizedBox(width: 12.w),
-                          Expanded(
-                            child: TextField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Email Address',
-                                hintStyle: TextStyle(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPlaceholder,
-                                ),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
                           ),
-                          Text(
-                            'Optional',
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              fontStyle: FontStyle.italic,
+                          decoration: InputDecoration(
+                            hintText: 'Email Address',
+                            hintStyle: TextStyle(
+                              fontSize: 14.sp,
                               fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary.withOpacity(0.8),
+                              color: AppColors.textPlaceholder,
                             ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14.h),
+                            prefixIcon: Icon(Icons.mail_outline_rounded, size: 19.sp, color: AppColors.textSecondary),
+                            prefixIconConstraints: BoxConstraints(minWidth: 43.w, minHeight: 20.h),
+                            suffixIcon: Padding(
+                              padding: EdgeInsets.only(right: 12.w),
+                              child: Center(
+                                widthFactor: 1,
+                                child: Text(
+                                  'Optional',
+                                  style: TextStyle(
+                                    fontSize: 12.sp,
+                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textSecondary.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            suffixIconConstraints: BoxConstraints(minWidth: 0, minHeight: 0),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                     SizedBox(height: 22.h),
@@ -511,16 +531,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                             ),
-                            recognizer: TapGestureRecognizer()..onTap = () {},
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => Get.toNamed(AppRoutes.termsOfService),
                           ),
-                          const TextSpan(text: '\nand '),
+                          const TextSpan(text: ' and '),
                           TextSpan(
                             text: 'Privacy Policy',
                             style: const TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                             ),
-                            recognizer: TapGestureRecognizer()..onTap = () {},
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => Get.toNamed(AppRoutes.privacyPolicy),
                           ),
                         ],
                       ),
@@ -563,23 +585,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Widget _buildInputPill({required Widget child}) {
-    return Container(
-      height: 50.h,
-      padding: EdgeInsets.symmetric(horizontal: 18.w),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(26.r),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.textSecondary.withOpacity(0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: child,
-    );
+    return child;
   }
 }
 

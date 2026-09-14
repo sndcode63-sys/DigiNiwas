@@ -7,6 +7,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/storage/secure_storage_service.dart';
+import '../../../core/storage/storage_service.dart';
 import '../../../core/utils/app_logger.dart';
 
 /// Friendly error thrown by [AuthRepository] so the UI can show
@@ -156,6 +157,7 @@ class AuthRepository {
 
   Future<void> logout() async {
     await _storage.clearTokens();
+    await StorageService.instance.clearSession();
   }
 
   Future<void> _persistSession(Map<String, dynamic> response) async {
@@ -166,6 +168,10 @@ class AuthRepository {
     final user = response['data'];
     if (user is Map) {
       await _storage.saveUserData(jsonEncode(user));
+      await StorageService.instance.saveSession(
+        token: token ?? '',
+        data: Map<String, dynamic>.from(user),
+      );
     }
   }
 

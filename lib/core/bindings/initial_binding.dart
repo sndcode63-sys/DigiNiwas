@@ -2,8 +2,8 @@ import 'package:get/get.dart';
 
 import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/data/auth_repository.dart';
-import '../../features/auth/data/property_partner_repo.dart';
-import '../controller/partner_home_controller.dart';
+import '../../features/partner/controllers/partner_home_controller.dart';
+import '../../features/partner/data/partner_repository.dart';
 import '../network/api_service.dart';
 import '../services/location_service.dart';
 import '../storage/secure_storage_service.dart';

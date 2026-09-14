@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import '../../../core/constants/api_constants.dart';
-import '../../../core/models/seller_model.dart';
+import '../models/seller_model.dart';
 import '../../../core/network/api_service.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../core/utils/app_logger.dart';

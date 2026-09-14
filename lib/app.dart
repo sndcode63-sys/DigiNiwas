@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import 'core/bindings/initial_binding.dart';
 import 'core/routes/app_pages.dart';
 import 'core/routes/app_routes.dart';
-import 'core/theme/app_colors.dart';
+import 'core/theme/app_theme.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -24,19 +22,7 @@ class MyApp extends StatelessWidget {
           initialBinding: InitialBinding(),
           initialRoute: AppRoutes.splash,
           getPages: AppPages.pages,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: AppColors.turquoise,
-              primary: AppColors.turquoise,
-              secondary: AppColors.green,
-              surface: AppColors.white,
-              error: AppColors.error,
-            ),
-            scaffoldBackgroundColor: AppColors.background,
-            useMaterial3: true,
-            fontFamily: GoogleFonts.poppins().fontFamily,
-            textTheme: GoogleFonts.poppinsTextTheme(),
-          ),
+          theme: AppTheme.lightTheme,
         );
       },
     );

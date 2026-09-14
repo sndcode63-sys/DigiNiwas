@@ -159,6 +159,13 @@ class StorageService {
 
   Future<String?> get localAvatarPath async => (await _prefs).getString(StorageKeys.localAvatarPath);
 
+  Future<void> saveSellerLocalAvatarPath(String path) async {
+    final prefs = await _prefs;
+    await prefs.setString(StorageKeys.sellerLocalAvatarPath, path);
+  }
+
+  Future<String?> get sellerLocalAvatarPath async => (await _prefs).getString(StorageKeys.sellerLocalAvatarPath);
+
   // -----------------------------------------------------------------
   // READ helpers
   // -----------------------------------------------------------------
@@ -172,6 +179,18 @@ class StorageService {
   Future<String?> get role async => (await _prefs).getString(StorageKeys.role);
   Future<String?> get partnerType async => (await _prefs).getString(StorageKeys.partnerType);
   Future<bool> get isLoggedIn async => (await _prefs).getBool(StorageKeys.isLoggedIn) ?? false;
+  Future<Map<String, dynamic>?> get location async {
+    final prefs = await _prefs;
+    final raw = prefs.getString(StorageKeys.location);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // -----------------------------------------------------------------
   // CLEAR — call this on logout
@@ -239,6 +258,7 @@ class StorageKeys {
   static const String recentlyViewedIds = 'recently_viewed_property_ids';
   static const String enquiryIds = 'enquiry_property_ids';
   static const String localAvatarPath = 'local_avatar_path';
+  static const String sellerLocalAvatarPath = 'seller_local_avatar_path';
   static const String pendingPartnerApplication = 'pending_partner_application';
 
 }

@@ -5,10 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:pinput/pinput.dart';
 
 import '../../../core/routes/app_pages.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_toast.dart'; // <-- Yeh AppToast wali file import hai
 import '../application/auth_controller.dart';
@@ -43,9 +43,12 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final AuthController _authController = Get.find<AuthController>();
-  final List<TextEditingController> _controllers =
-  List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+
+  // Single controller for the whole 6-digit code — pinput manages the
+  // per-box focus/backspace/paste/autofill behaviour internally, so we
+  // don't need 6 separate TextEditingControllers/FocusNodes any more.
+  final TextEditingController _pinController = TextEditingController();
+  final FocusNode _pinFocusNode = FocusNode();
 
   static const int _resendSeconds = 30;
   int _secondsRemaining = _resendSeconds;
@@ -74,42 +77,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (var c in _controllers) {
-      c.dispose();
-    }
-    for (var f in _focusNodes) {
-      f.dispose();
-    }
+    _pinController.dispose();
+    _pinFocusNode.dispose();
     super.dispose();
-  }
-
-  /// Handles auto-fill or full-string pasting (e.g. 6-digit SMS code)
-  void _onOtpChanged(String val, int index) {
-    if (val.length > 1) {
-      final cleanedVal = val.replaceAll(RegExp(r'[^0-9]'), '');
-      for (int i = 0; i < 6; i++) {
-        if (i < cleanedVal.length) {
-          _controllers[i].text = cleanedVal[i];
-        }
-      }
-      if (cleanedVal.length >= 6) {
-        FocusScope.of(context).unfocus();
-        _verifyOtp();
-      } else if (cleanedVal.isNotEmpty) {
-        _focusNodes[cleanedVal.length < 6 ? cleanedVal.length : 5]
-            .requestFocus();
-      }
-      return;
-    }
-
-    if (val.isNotEmpty && index < 5) {
-      _focusNodes[index + 1].requestFocus();
-    } else if (val.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    } else if (val.isNotEmpty && index == 5) {
-      FocusScope.of(context).unfocus();
-      _verifyOtp();
-    }
   }
 
   Future<void> _resendOtp() async {
@@ -120,6 +90,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     setState(() => _isResending = false);
 
     if (success) {
+      _pinController.clear();
       _startTimer();
       AppToast.success(context, 'OTP resent successfully.');
     } else {
@@ -128,11 +99,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
-  Future<void> _verifyOtp() async {
-    // Plain `print` — bypasses the logger package entirely, so even if
-    // something is wrong with AppLogger's config this still shows up in
-    // `flutter run`'s console. If this single line doesn't appear the
-    // moment you tap the button, the button isn't reaching this method.
+  /// [otpOverride] lets pinput's onCompleted hand us the code directly —
+  /// avoids any race where _pinController.text hasn't repainted yet.
+  Future<void> _verifyOtp([String? otpOverride]) async {
     print('🟢 _verifyOtp() called');
 
     if (_isVerifying) {
@@ -140,7 +109,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       return;
     }
 
-    final otp = _controllers.map((c) => c.text.trim()).join();
+    final otp = (otpOverride ?? _pinController.text).trim();
     print('🟢 otp entered: "$otp" (length ${otp.length})');
     if (otp.length != 6) {
       AppToast.error(context, 'Please enter the complete 6-digit OTP.');
@@ -169,6 +138,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (!success) {
         final backendError = _authController.state.value.errorMessage;
         AppToast.error(context, backendError ?? 'Invalid OTP.');
+        // Wrong OTP hone par box clear karke cursor wapas start pe le aao.
+        _pinController.clear();
+        _pinFocusNode.requestFocus();
         return;
       }
 
@@ -208,7 +180,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DigiNiwasLogo(),
+                  const DigiNiwasLogo(),
                   SizedBox(height: 24.h),
 
                   // Title & Subtitle
@@ -300,17 +272,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   SizedBox(height: 28.h),
 
-                  // 6-digit OTP Inputs (Centered Container wrapper)
+                  // 6-digit OTP input — pinput handles per-box rendering,
+                  // focus movement, backspace, paste and SMS autofill.
                   ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: 360.w),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children:
-                        List.generate(6, (index) => _buildOtpBox(index)),
-                      ),
-                    ),
+                    child: _buildPinput(),
                   ),
                   SizedBox(height: 26.h),
 
@@ -364,7 +330,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       label: 'Verify OTP',
                       icon: Icons.arrow_forward_rounded,
                       isLoading: _isVerifying,
-                      onPressed: _isVerifying ? null : _verifyOtp,
+                      onPressed: _isVerifying ? null : () => _verifyOtp(),
                     ),
                   ),
                   SizedBox(height: 20.h),
@@ -480,38 +446,50 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     );
   }
 
-  Widget _buildOtpBox(int index) {
-    return Container(
+  Widget _buildPinput() {
+    final defaultPinTheme = PinTheme(
       width: 46.w,
       height: 52.h,
+      textStyle: TextStyle(
+        fontSize: 18.sp,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textPrimary,
+      ),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(24.r),
         border: Border.all(color: AppColors.border, width: 1.2),
       ),
-      alignment: Alignment.center,
-      child: TextField(
-        controller: _controllers[index],
-        focusNode: _focusNodes[index],
-        keyboardType: TextInputType.number,
-        textAlign: TextAlign.center,
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-        ],
-        maxLength: 6,
-        style: TextStyle(
-          fontSize: 18.sp,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-        ),
-        decoration: const InputDecoration(
-          counterText: '',
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-        onChanged: (val) => _onOtpChanged(val, index),
-      ),
+    );
+
+    final focusedPinTheme = defaultPinTheme.copyDecorationWith(
+      border: Border.all(color: AppColors.primaryDark, width: 1.6),
+    );
+
+    final submittedPinTheme = defaultPinTheme.copyDecorationWith(
+      border: Border.all(color: AppColors.primaryDark, width: 1.2),
+      color: AppColors.softBackground,
+    );
+
+    final errorPinTheme = defaultPinTheme.copyDecorationWith(
+      border: Border.all(color: Colors.red, width: 1.4),
+    );
+
+    return Pinput(
+      length: 6,
+      controller: _pinController,
+      focusNode: _pinFocusNode,
+      autofocus: true,
+      defaultPinTheme: defaultPinTheme,
+      focusedPinTheme: focusedPinTheme,
+      submittedPinTheme: submittedPinTheme,
+      errorPinTheme: errorPinTheme,
+      pinAnimationType: PinAnimationType.fade,
+      showCursor: true,
+      onCompleted: (pin) {
+        FocusScope.of(context).unfocus();
+        _verifyOtp(pin);
+      },
     );
   }
 }

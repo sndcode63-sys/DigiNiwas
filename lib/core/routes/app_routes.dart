@@ -8,6 +8,8 @@ abstract class AppRoutes {
   static const chooseRole = '/choose-role';
   static const registration = '/registration';
   static const otp = '/otp';
+  static const privacyPolicy = '/privacy-policy';
+  static const termsOfService = '/terms-of-service';
 
   // Dashboards (one per role)
   static const buyerHome = '/buyer-home';

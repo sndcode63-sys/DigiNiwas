@@ -95,7 +95,7 @@ class ImageCase extends StatelessWidget {
       child: SizedBox(
         width: 18,
         height: 18,
-        child: CircularProgressIndicator(strokeWidth: 2, color: iconColor.withOpacity(0.6)),
+        child: CircularProgressIndicator(strokeWidth: 2, color: iconColor.withValues(alpha: 0.6)),
       ),
     );
   }

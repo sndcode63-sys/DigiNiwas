@@ -21,7 +21,7 @@ class AuthController extends GetxController {
 
   /// Reactive auth state — wrap reads in `Obx(() => ...)` to rebuild on
   /// change, same shape as the old `AuthState` from Riverpod.
-  final Rx<AuthState> state = AuthState().obs;
+  final Rx<AuthState> state = const AuthState().obs;
 
   /// Last GPS fix captured on the login/registration screens (see
   /// `captureAndAttachLocation`). Any screen can watch this to build
